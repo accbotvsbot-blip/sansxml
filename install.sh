@@ -1,4 +1,4 @@
-cat > /root/install.sh << 'PART1EOF'
+cat > /root/install.sh << 'INSTALLEREOF'
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
 CYAN='\033[1;36m'; GREEN='\033[1;32m'; RED='\033[1;31m'
@@ -264,10 +264,6 @@ Banner /etc/issue.net
 PrintMotd yes
 SSHEOF
 systemctl restart ssh 2>/dev/null || systemctl restart sshd
-PART1EOF
-echo "✅ BLOK 1 tersimpan. Lanjut BLOK 2."
-
-cat >> /root/install.sh << 'PART2EOF'
 
 echo ""
 echo -e "  ${YELLOW}▸ Install Bot Telegram${NC}"
@@ -276,7 +272,7 @@ cat > /root/bot.py << 'BOTPYEOF'
 #!/usr/bin/env python3
 import re, io, json, os, logging, subprocess, asyncio, base64, random, string
 from datetime import datetime, timedelta
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, ReplyKeyboardRemove
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
 CONFIG_FILE = "/root/vpnbot_config.json"
@@ -302,6 +298,8 @@ SSH_KEY_PATH = "/root/.ssh/id_bot"
 HARI_MIN, HARI_MAX = 1, 30
 TRIAL_DURATION_MIN = 30
 TRIAL_PER_DAY = 2
+MIN_USERNAME = 5
+MIN_PASSWORD = 5
 
 def get_price(hari):
     srv = list(SERVERS.values())[0] if SERVERS else {"price_day":167, "price_month":5000}
@@ -420,9 +418,9 @@ def ssh_test():
     return True, "SSH OK"
 
 def gen_pass(n=8): return ''.join(random.choices(string.ascii_lowercase+string.digits, k=n))
-def valid_username(s): return bool(re.match(r'^[a-zA-Z0-9_]{3,20}$', s or ""))
+def valid_username(s): return bool(re.match(r'^[a-zA-Z0-9_]{5,20}$', s or ""))
 def valid_password(s):
-    if not s or len(s)<4 or len(s)>32: return False
+    if not s or len(s)<5 or len(s)>32: return False
     return all(c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*_.-" for c in s)
 
 def get_vps_detail():
@@ -516,10 +514,56 @@ def kb_dashboard(uid):
     rows = [
         [InlineKeyboardButton("➕ BUAT AKUN", callback_data="buat_akun"),
          InlineKeyboardButton("⌛ TRIAL AKUN", callback_data="trial_akun")],
-        [InlineKeyboardButton("👤 AKUN SAYA", callback_data="my_accs"),
-         InlineKeyboardButton("♻️ REFRESH", callback_data="menu|main")]]
+        [InlineKeyboardButton("💰 ISI SALDO", callback_data="isi_saldo"),
+         InlineKeyboardButton("👤 AKUN SAYA", callback_data="my_accs")],
+        [InlineKeyboardButton("♻️ REFRESH", callback_data="menu|main")]]
     if is_owner(uid): rows.append([InlineKeyboardButton("⚙️ Admin Panel", callback_data="admin|menu")])
     return InlineKeyboardMarkup(rows)
+
+# === Tombol permanen di bawah kolom chat ===
+def kb_bawah():
+    return ReplyKeyboardMarkup(
+        [["🛍️ MENU UTAMA"]],
+        resize_keyboard=True,
+        is_persistent=True,
+        input_field_placeholder="Tekan 🛍️ MENU UTAMA"
+    )
+
+# ================== FITUR ISI SALDO ==================
+def saldo_text(uid, nominal=""):
+    lines = []
+    lines.append("<blockquote>")
+    lines.append("💰 <b>Silakan masukkan jumlah nominal saldo yang Anda ingin tambahkan ke akun Anda:</b>")
+    lines.append("")
+    lines.append(f"Jumlah saat ini: <b>{rupiah(get_bal(uid))}</b>")
+    lines.append("")
+    if nominal:
+        lines.append(f"Nominal input: <b>{rupiah(nominal)}</b>")
+    else:
+        lines.append("Nominal input: <b>-</b>")
+    lines.append("</blockquote>")
+    return "\n".join(lines)
+
+def kb_saldo(current_input=""):
+    def val(v):
+        return f"saldo_num|{current_input}{v}"
+    rows = [
+        [InlineKeyboardButton("1", callback_data=val("1")),
+         InlineKeyboardButton("2", callback_data=val("2")),
+         InlineKeyboardButton("3", callback_data=val("3"))],
+        [InlineKeyboardButton("4", callback_data=val("4")),
+         InlineKeyboardButton("5", callback_data=val("5")),
+         InlineKeyboardButton("6", callback_data=val("6"))],
+        [InlineKeyboardButton("7", callback_data=val("7")),
+         InlineKeyboardButton("8", callback_data=val("8")),
+         InlineKeyboardButton("9", callback_data=val("9"))],
+        [InlineKeyboardButton("⬅️ Hapus", callback_data="saldo_hapus"),
+         InlineKeyboardButton("0", callback_data=val("0")),
+         InlineKeyboardButton("✅ Konfirmasi", callback_data="saldo_konfirmasi")],
+        [InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]
+    ]
+    return InlineKeyboardMarkup(rows)
+# ================== END FITUR ISI SALDO ==================
 
 def kb_admin():
     return InlineKeyboardMarkup([
@@ -531,12 +575,12 @@ def kb_admin():
          InlineKeyboardButton("🩺 Test SSH", callback_data="admin|testssh")],
         [InlineKeyboardButton("💾 Backup Token", callback_data="admin|backup"),
          InlineKeyboardButton("🧹 Cleanup", callback_data="admin|cleanup")],
-        [InlineKeyboardButton("🔙 Menu", callback_data="menu|main")]])
+        [InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]])
 
 def kb_acc_detail(un):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🗑️ Hapus", callback_data=f"del_acc|{un}")],
-        [InlineKeyboardButton("🔙 Kembali", callback_data="my_accs")]])
+        [InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]])
 
 def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWMEDIA"):
     if manual: head = "MANUAL"
@@ -557,6 +601,7 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWM
     lines.append("◤ <b>SSH OVPN ACCOUNT</b> ◢")
     lines.append(f"     ❖ <b>{head}</b> ❖")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("")
     lines.append("<code>")
     lines.append(f"Server   : {sn}")
     lines.append(f"Username : {u}")
@@ -564,7 +609,9 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWM
     lines.append(f"Quota    : Unlimited")
     lines.append(f"Limit IP : {ip} IP")
     lines.append("</code>")
+    lines.append("")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("")
     lines.append("<code>")
     lines.append(f"Host     : {SSH_HOST}")
     lines.append("OpenSSH  : 443, 80, 22")
@@ -575,7 +622,9 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWM
     lines.append("OVPN     : 443, 1194, 2200")
     lines.append("BadVPN   : 7100, 7300")
     lines.append("</code>")
+    lines.append("")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("")
     lines.append("<code>")
     lines.append(f"SSL      : {SSH_HOST}:443@{u}:{p}")
     lines.append("")
@@ -583,14 +632,17 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWM
     lines.append("")
     lines.append(f"UDP      : {SSH_HOST}:1-65535@{u}:{p}")
     lines.append("</code>")
+    lines.append("")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("")
     lines.append("<code>")
     lines.append(f"Durasi   : {dl}")
     lines.append(f"Dibuat   : {created_fmt}")
     lines.append(f"Berakhir : {exp_fmt}")
     lines.append("</code>")
+    lines.append("")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
-    lines.append("<b>╭───〔 SANSXML VPN STORE 〕───╮</b>")
+    lines.append("<b>      ◤ SANSXML VPN STORE ◢</b>")
     lines.append("<i>❖ Terima kasih telah menggunakan layanan kami ❖</i>")
     return "\n".join(lines)
 
@@ -598,12 +650,26 @@ async def do_create_account(chat, uid, user, username, password, hari, is_trial=
     owner = is_owner(uid)
     price = 0 if (owner or is_trial) else get_price(hari)
     if not owner and not is_trial and get_bal(uid) < price:
-        await chat.send_message(f"❌ Saldo kurang: {rupiah(get_bal(uid))} < {rupiah(price)}", parse_mode="HTML"); return
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💰 ISI SALDO", callback_data="isi_saldo")],
+            [InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]
+        ])
+        await chat.send_message(
+            f"<blockquote>❌ <b>Saldo Tidak Cukup</b>\n\n"
+            f"💰 Saldo Anda : <b>{rupiah(get_bal(uid))}</b>\n"
+            f"💵 Harga Akun : <b>{rupiah(price)}</b>\n"
+            f"📉 Kurang     : <b>{rupiah(price - get_bal(uid))}</b></blockquote>\n\n"
+            f"Silakan isi saldo melalui menu\n"
+            f"Tombol <b>💰 ISI SALDO</b>.",
+            reply_markup=kb,
+            parse_mode="HTML")
+        return
     msg = await chat.send_message("⏳ Membuat akun...", parse_mode="HTML")
     r = await asyncio.to_thread(ssh_create, username, password, hari)
     if not owner and not is_trial:
         ok, nb = reduce_bal(uid, price)
-        if not ok: await msg.edit_text("❌ Saldo berubah."); return
+        if not ok:
+            await msg.edit_text("❌ Saldo berubah. Silakan coba lagi.", parse_mode="HTML"); return
     save_acc(username, {"user_id":uid,"username":username,"password":password,
         "exp":r["exp"],"days":hari,"limit_ip":IP_LIMIT,"harga":price,
         "created_at":datetime.now().isoformat(),"first_name":user.first_name or "",
@@ -649,6 +715,12 @@ async def start(u, c):
     uid = u.effective_user.id
     track_user(u.effective_user); c.user_data.clear()
     await u.message.reply_text(dashboard_text(u.effective_user, uid), reply_markup=kb_dashboard(uid), parse_mode="HTML")
+    # Kirim tombol permanen di bawah kolom chat
+    await u.message.reply_text(
+        "Tekan tombol <b>🛍️ MENU UTAMA</b> di bawah untuk kembali ke menu ini kapan saja 👇",
+        reply_markup=kb_bawah(),
+        parse_mode="HTML"
+    )
 
 async def cb(u, c):
     uid = u.effective_user.id
@@ -656,6 +728,51 @@ async def cb(u, c):
     q = u.callback_query; await q.answer()
     d = q.data; chat = u.effective_chat
     if d == "noop": return
+
+    # ================== HANDLER ISI SALDO ==================
+    if d == "isi_saldo":
+        c.user_data["saldo_input"] = ""
+        try: await q.edit_message_text(saldo_text(uid), reply_markup=kb_saldo(""), parse_mode="HTML")
+        except: pass
+        return
+    if d.startswith("saldo_num|"):
+        cur = c.user_data.get("saldo_input", "")
+        add = d.split("|",1)[1]
+        if len(cur) >= 9: await q.answer("Maks 9 digit", show_alert=True); return
+        cur = (cur + add).lstrip("0") or ""
+        c.user_data["saldo_input"] = cur
+        try: await q.edit_message_text(saldo_text(uid, cur), reply_markup=kb_saldo(cur), parse_mode="HTML")
+        except: pass
+        return
+    if d == "saldo_hapus":
+        cur = c.user_data.get("saldo_input", "")
+        cur = cur[:-1] if cur else ""
+        c.user_data["saldo_input"] = cur
+        try: await q.edit_message_text(saldo_text(uid, cur), reply_markup=kb_saldo(cur), parse_mode="HTML")
+        except: pass
+        return
+    if d == "saldo_konfirmasi":
+        cur = c.user_data.get("saldo_input", "")
+        if not cur or int(cur) <= 0:
+            await q.answer("Nominal belum diisi!", show_alert=True); return
+        nominal = int(cur)
+        saldo_baru = add_bal(uid, nominal)
+        add_trx(uid, u.effective_user.first_name or "", u.effective_user.username or "", "isi_saldo", nominal, "topup")
+        c.user_data["saldo_input"] = ""
+        try:
+            await q.edit_message_text(
+                f"✅ <b>Saldo Berhasil Ditambahkan</b>\n\n"
+                f"<blockquote>"
+                f"💰 Nominal: <b>{rupiah(nominal)}</b>\n"
+                f"💼 Saldo Sekarang: <b>{rupiah(saldo_baru)}</b>"
+                f"</blockquote>\n\n"
+                f"<i>❖ Saldo dapat digunakan untuk membuat akun VPN ❖</i>",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]]),
+                parse_mode="HTML")
+        except: pass
+        return
+    # ================== END HANDLER ISI SALDO ==================
+
     if d == "buat_akun":
         c.user_data.clear(); c.user_data["mode"] = "buat"
         try: await q.edit_message_text(pilih_layanan_text(), reply_markup=kb_pilih_layanan(), parse_mode="HTML")
@@ -702,7 +819,7 @@ async def cb(u, c):
         else:
             c.user_data["buat_step"] = "username"
             c.user_data["buat_data"] = {"server": sl}
-            await chat.send_message("👤 <b>Masukkan username akun :</b>", parse_mode="HTML")
+            await chat.send_message("👤 <b>Masukkan username akun :</b>\n<i>(minimal 5 karakter)</i>", parse_mode="HTML")
             return
     if d == "my_accs":
         accs = []
@@ -728,12 +845,12 @@ async def cb(u, c):
             try: await q.edit_message_text("\n".join(empty_txt),
                 reply_markup=InlineKeyboardMarkup([
                     [InlineKeyboardButton("➕ Buat Akun", callback_data="buat_akun")],
-                    [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]]),
+                    [InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]]),
                 parse_mode="HTML")
             except: pass
             return
         rows = [[InlineKeyboardButton(f"👤 {a['username']}", callback_data=f"acc_detail|{a['username']}")] for a in accs[:20]]
-        rows.append([InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")])
+        rows.append([InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")])
         hdr = []
         hdr.append("<blockquote>")
         hdr.append("╭──────〔 <b>AKUN SAYA</b> 〕──────╮")
@@ -790,13 +907,13 @@ async def cb(u, c):
     if d == "admin|stats":
         if not is_owner(uid): return
         st = get_stats()
-        try: await q.edit_message_text(f"📊 <b>STATISTIK</b>\n\nHari: <b>{st['hari']}</b>\nMinggu: <b>{st['minggu']}</b>\nBulan: <b>{st['bulan']}</b>\nTotal: <b>{st['total']}</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙", callback_data="admin|menu")]]), parse_mode="HTML")
+        try: await q.edit_message_text(f"📊 <b>STATISTIK</b>\n\nHari: <b>{st['hari']}</b>\nMinggu: <b>{st['minggu']}</b>\nBulan: <b>{st['bulan']}</b>\nTotal: <b>{st['total']}</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]]), parse_mode="HTML")
         except: pass
         return
     if d == "admin|income":
         if not is_owner(uid): return
         inc = get_income()
-        try: await q.edit_message_text(f"💰 <b>PENGHASILAN</b>\n\nHari: <b>{rupiah(inc['hari'])}</b>\nBulan: <b>{rupiah(inc['bulan'])}</b>\nTotal: <b>{rupiah(inc['total'])}</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙", callback_data="admin|menu")]]), parse_mode="HTML")
+        try: await q.edit_message_text(f"💰 <b>PENGHASILAN</b>\n\nHari: <b>{rupiah(inc['hari'])}</b>\nBulan: <b>{rupiah(inc['bulan'])}</b>\nTotal: <b>{rupiah(inc['total'])}</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]]), parse_mode="HTML")
         except: pass
         return
     if d == "admin|vps":
@@ -812,7 +929,7 @@ async def cb(u, c):
             f"├ RAM      : <b>{v['ram']}</b>\n"
             f"├ Disk     : <b>{v['disk']}</b>\n"
             f"╰ Uptime   : <b>{v['uptime']}</b></blockquote>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙", callback_data="admin|menu")]]), parse_mode="HTML")
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]]), parse_mode="HTML")
         except: pass
         return
     if d == "admin|testssh":
@@ -820,7 +937,7 @@ async def cb(u, c):
         try: await q.edit_message_text("🩺 Tes...")
         except: pass
         ok, msg = await asyncio.to_thread(ssh_test)
-        try: await q.edit_message_text(msg, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙", callback_data="admin|menu")]]), parse_mode="HTML")
+        try: await q.edit_message_text(msg, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]]), parse_mode="HTML")
         except: pass
         return
     if d == "admin|backup":
@@ -847,7 +964,7 @@ async def cb(u, c):
                 if (today - ed).days >= 1:
                     await asyncio.to_thread(ssh_delete, un); delete_acc_json(un); dele += 1
             except: pass
-        try: await q.edit_message_text(f"🧹 Dihapus: <b>{dele}</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙", callback_data="admin|menu")]]), parse_mode="HTML")
+        try: await q.edit_message_text(f"🧹 Dihapus: <b>{dele}</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]]), parse_mode="HTML")
         except: pass
         return
     if d.startswith("admin|list|"):
@@ -868,7 +985,7 @@ async def cb(u, c):
         nav.append(InlineKeyboardButton(f"{page+1}/{tp}", callback_data="noop"))
         if page < tp-1: nav.append(InlineKeyboardButton("▶️", callback_data=f"admin|list|{page+1}"))
         if nav: rows.append(nav)
-        rows.append([InlineKeyboardButton("🔙", callback_data="admin|menu")])
+        rows.append([InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")])
         try: await q.edit_message_text(f"🔑 <b>DAFTAR AKUN</b> ({total})", reply_markup=InlineKeyboardMarkup(rows), parse_mode="HTML")
         except: pass
         return
@@ -876,14 +993,14 @@ async def cb(u, c):
         if not is_owner(uid): return
         un = d.split("|",1)[1]; a = get_acc(un)
         if not a: await q.answer("No", show_alert=True); return
-        try: await q.edit_message_text(f"🔑 <b>AKUN</b>\n\n<code>{un}</code>\n🔒 <code>{a['password']}</code>\n📅 Exp: {a['exp']}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🗑️ Hapus", callback_data=f"adm_del|{un}")],[InlineKeyboardButton("🔙", callback_data="admin|list|0")]]), parse_mode="HTML")
+        try: await q.edit_message_text(f"🔑 <b>AKUN</b>\n\n<code>{un}</code>\n🔒 <code>{a['password']}</code>\n📅 Exp: {a['exp']}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🗑️ Hapus", callback_data=f"adm_del|{un}")],[InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]]), parse_mode="HTML")
         except: pass
         return
     if d.startswith("adm_del|"):
         if not is_owner(uid): return
         un = d.split("|",1)[1]
         await asyncio.to_thread(ssh_delete, un); delete_acc_json(un)
-        try: await q.edit_message_text(f"🗑️ <code>{un}</code> dihapus", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙", callback_data="admin|list|0")]]), parse_mode="HTML")
+        try: await q.edit_message_text(f"🗑️ <code>{un}</code> dihapus", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]]), parse_mode="HTML")
         except: pass
         return
 
@@ -891,19 +1008,31 @@ async def msg(u, c):
     uid = u.effective_user.id
     track_user(u.effective_user)
     t = (u.message.text or "").strip()
+
+    # === Handle tombol Reply Keyboard "🛍️ MENU UTAMA" ===
+    if t == "🛍️ MENU UTAMA":
+        c.user_data.clear()
+        await u.message.reply_text(
+            dashboard_text(u.effective_user, uid),
+            reply_markup=kb_dashboard(uid),
+            parse_mode="HTML"
+        )
+        return
+    # === End ===
+
     step = c.user_data.get("buat_step")
     if step:
         data = c.user_data.get("buat_data",{})
         if step == "username":
             if not valid_username(t):
-                await u.message.reply_text("❌ Username invalid (3-20)\n\n👤 Masukkan username akun :", parse_mode="HTML"); return
+                await u.message.reply_text("❌ Username minimal 5 karakter (huruf/angka/_) dan maksimal 20.\n\n👤 Masukkan username akun :", parse_mode="HTML"); return
             if is_username_taken(t):
                 await u.message.reply_text(f"❌ {t} sudah ada.\n\n👤 Masukkan username akun :", parse_mode="HTML"); return
             data["username"] = t; c.user_data["buat_data"] = data; c.user_data["buat_step"] = "password"
-            await u.message.reply_text("🔑 Masukkan password akun :", parse_mode="HTML"); return
+            await u.message.reply_text("🔑 Masukkan password akun :\n<i>(minimal 5 karakter)</i>", parse_mode="HTML"); return
         if step == "password":
             if not valid_password(t):
-                await u.message.reply_text("❌ Password min 4\n\n🔑 Masukkan password akun :", parse_mode="HTML"); return
+                await u.message.reply_text("❌ Password minimal 5 karakter (huruf/angka/simbol).\n\n🔑 Masukkan password akun :", parse_mode="HTML"); return
             data["password"] = t; c.user_data["buat_data"] = data; c.user_data["buat_step"] = "durasi"
             await u.message.reply_text("📆 Masukkan masa aktif 1-30 (hari) :", parse_mode="HTML"); return
         if step == "durasi":
@@ -915,7 +1044,19 @@ async def msg(u, c):
             owner = is_owner(uid); price = 0 if owner else get_price(hari)
             c.user_data["buat_step"] = None; c.user_data["buat_data"] = {}
             if not owner and get_bal(uid) < price:
-                await u.message.reply_text(f"❌ Saldo kurang {rupiah(price)}", parse_mode="HTML"); return
+                kb = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("💰 ISI SALDO", callback_data="isi_saldo")],
+                    [InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]
+                ])
+                await u.message.reply_text(
+                    f"<blockquote>❌ <b>Saldo Tidak Cukup</b>\n\n"
+                    f"💰 Saldo Anda : <b>{rupiah(get_bal(uid))}</b>\n"
+                    f"💵 Harga Akun : <b>{rupiah(price)}</b>\n"
+                    f"📉 Kurang     : <b>{rupiah(price - get_bal(uid))}</b></blockquote>\n\n"
+                    f"Silakan isi saldo melalui menu\n"
+                    f"Tombol <b>💰 ISI SALDO</b>.",
+                    reply_markup=kb,
+                    parse_mode="HTML"); return
             await do_create_account(u.effective_chat, uid, u.effective_user, un, pw, hari, server=srv)
             return
 
@@ -979,7 +1120,7 @@ echo -e "  ${CYAN}Domain${NC} : ${GREEN}$DOMAIN${NC}"
 echo -e "  ${CYAN}Bot${NC}    : Cek di Telegram (/start)"
 echo -e "  ${CYAN}Log${NC}    : tail -f /root/vpnbot.log"
 echo ""
-PART2EOF
+INSTALLEREOF
 
 chmod +x /root/install.sh
 echo "✅ INSTALLER SIAP: /root/install.sh"

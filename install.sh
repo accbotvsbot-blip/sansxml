@@ -272,7 +272,7 @@ cat > /root/bot.py << 'BOTPYEOF'
 #!/usr/bin/env python3
 import re, io, json, os, logging, subprocess, asyncio, base64, random, string
 from datetime import datetime, timedelta
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand, ReplyKeyboardRemove
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters
 
 CONFIG_FILE = "/root/vpnbot_config.json"
@@ -300,6 +300,7 @@ TRIAL_DURATION_MIN = 30
 TRIAL_PER_DAY = 2
 MIN_USERNAME = 5
 MIN_PASSWORD = 5
+MIN_TOPUP = 2000
 
 def get_price(hari):
     srv = list(SERVERS.values())[0] if SERVERS else {"price_day":167, "price_month":5000}
@@ -520,15 +521,6 @@ def kb_dashboard(uid):
     if is_owner(uid): rows.append([InlineKeyboardButton("⚙️ Admin Panel", callback_data="admin|menu")])
     return InlineKeyboardMarkup(rows)
 
-# === Tombol permanen di bawah kolom chat ===
-def kb_bawah():
-    return ReplyKeyboardMarkup(
-        [["🛍️ MENU UTAMA"]],
-        resize_keyboard=True,
-        is_persistent=True,
-        input_field_placeholder="Tekan 🛍️ MENU UTAMA"
-    )
-
 # ================== FITUR ISI SALDO ==================
 def saldo_text(uid, nominal=""):
     lines = []
@@ -537,10 +529,9 @@ def saldo_text(uid, nominal=""):
     lines.append("")
     lines.append(f"Jumlah saat ini: <b>{rupiah(get_bal(uid))}</b>")
     lines.append("")
-    if nominal:
-        lines.append(f"Nominal input: <b>{rupiah(nominal)}</b>")
-    else:
-        lines.append("Nominal input: <b>-</b>")
+    lines.append(f"Nominal input: <b>{rupiah(nominal) if nominal else 'Rp 0'}</b>")
+    lines.append("")
+    lines.append(f"<i>Minimal isi saldo {rupiah(MIN_TOPUP)}</i>")
     lines.append("</blockquote>")
     return "\n".join(lines)
 
@@ -648,8 +639,10 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWM
 
 async def do_create_account(chat, uid, user, username, password, hari, is_trial=False, server="SG NEWMEDIA"):
     owner = is_owner(uid)
-    price = 0 if (owner or is_trial) else get_price(hari)
-    if not owner and not is_trial and get_bal(uid) < price:
+    # Admin GRATIS untuk TRIAL, tapi PREMIUM tetap bayar
+    price = 0 if is_trial else get_price(hari)
+    # Cek saldo: TRIAL tidak perlu cek, PREMIUM harus punya saldo cukup (admin & user sama)
+    if not is_trial and get_bal(uid) < price:
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("💰 ISI SALDO", callback_data="isi_saldo")],
             [InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]
@@ -666,7 +659,7 @@ async def do_create_account(chat, uid, user, username, password, hari, is_trial=
         return
     msg = await chat.send_message("⏳ Membuat akun...", parse_mode="HTML")
     r = await asyncio.to_thread(ssh_create, username, password, hari)
-    if not owner and not is_trial:
+    if not is_trial:
         ok, nb = reduce_bal(uid, price)
         if not ok:
             await msg.edit_text("❌ Saldo berubah. Silakan coba lagi.", parse_mode="HTML"); return
@@ -715,12 +708,6 @@ async def start(u, c):
     uid = u.effective_user.id
     track_user(u.effective_user); c.user_data.clear()
     await u.message.reply_text(dashboard_text(u.effective_user, uid), reply_markup=kb_dashboard(uid), parse_mode="HTML")
-    # Kirim tombol permanen di bawah kolom chat
-    await u.message.reply_text(
-        "Tekan tombol <b>🛍️ MENU UTAMA</b> di bawah untuk kembali ke menu ini kapan saja 👇",
-        reply_markup=kb_bawah(),
-        parse_mode="HTML"
-    )
 
 async def cb(u, c):
     uid = u.effective_user.id
@@ -756,6 +743,8 @@ async def cb(u, c):
         if not cur or int(cur) <= 0:
             await q.answer("Nominal belum diisi!", show_alert=True); return
         nominal = int(cur)
+        if nominal < MIN_TOPUP:
+            await q.answer(f"❌ Minimal isi saldo {rupiah(MIN_TOPUP)}", show_alert=True); return
         saldo_baru = add_bal(uid, nominal)
         add_trx(uid, u.effective_user.first_name or "", u.effective_user.username or "", "isi_saldo", nominal, "topup")
         c.user_data["saldo_input"] = ""
@@ -819,7 +808,7 @@ async def cb(u, c):
         else:
             c.user_data["buat_step"] = "username"
             c.user_data["buat_data"] = {"server": sl}
-            await chat.send_message("👤 <b>Masukkan username akun :</b>\n<i>(minimal 5 karakter)</i>", parse_mode="HTML")
+            await chat.send_message("👤 <b>Masukkan username akun :</b>", parse_mode="HTML")
             return
     if d == "my_accs":
         accs = []
@@ -1008,42 +997,30 @@ async def msg(u, c):
     uid = u.effective_user.id
     track_user(u.effective_user)
     t = (u.message.text or "").strip()
-
-    # === Handle tombol Reply Keyboard "🛍️ MENU UTAMA" ===
-    if t == "🛍️ MENU UTAMA":
-        c.user_data.clear()
-        await u.message.reply_text(
-            dashboard_text(u.effective_user, uid),
-            reply_markup=kb_dashboard(uid),
-            parse_mode="HTML"
-        )
-        return
-    # === End ===
-
     step = c.user_data.get("buat_step")
     if step:
         data = c.user_data.get("buat_data",{})
         if step == "username":
             if not valid_username(t):
-                await u.message.reply_text("❌ Username minimal 5 karakter (huruf/angka/_) dan maksimal 20.\n\n👤 Masukkan username akun :", parse_mode="HTML"); return
+                await u.message.reply_text("❌ Username minimal 5 huruf\n\n👤 Masukkan username akun :", parse_mode="HTML"); return
             if is_username_taken(t):
                 await u.message.reply_text(f"❌ {t} sudah ada.\n\n👤 Masukkan username akun :", parse_mode="HTML"); return
             data["username"] = t; c.user_data["buat_data"] = data; c.user_data["buat_step"] = "password"
-            await u.message.reply_text("🔑 Masukkan password akun :\n<i>(minimal 5 karakter)</i>", parse_mode="HTML"); return
+            await u.message.reply_text("🔑 Masukkan password akun :", parse_mode="HTML"); return
         if step == "password":
             if not valid_password(t):
-                await u.message.reply_text("❌ Password minimal 5 karakter (huruf/angka/simbol).\n\n🔑 Masukkan password akun :", parse_mode="HTML"); return
+                await u.message.reply_text("❌ Password minimal 5 huruf\n\n🔑 Masukkan password akun :", parse_mode="HTML"); return
             data["password"] = t; c.user_data["buat_data"] = data; c.user_data["buat_step"] = "durasi"
             await u.message.reply_text("📆 Masukkan masa aktif 1-30 (hari) :", parse_mode="HTML"); return
         if step == "durasi":
             try: hari = int(re.sub(r'[^0-9]','',t))
-            except: await u.message.reply_text("❌ Angka 1-30", parse_mode="HTML"); return
+            except: await u.message.reply_text("❌ Masa aktif tidak valid contoh ketik : 3\n\n📆 Masukkan masa aktif 1-30 (hari) :", parse_mode="HTML"); return
             if not (HARI_MIN <= hari <= HARI_MAX):
-                await u.message.reply_text(f"❌ {HARI_MIN}-{HARI_MAX}", parse_mode="HTML"); return
+                await u.message.reply_text("❌ Masa aktif tidak valid contoh ketik : 3\n\n📆 Masukkan masa aktif 1-30 (hari) :", parse_mode="HTML"); return
             un = data.get("username"); pw = data.get("password"); srv = data.get("server","SG NEWMEDIA")
-            owner = is_owner(uid); price = 0 if owner else get_price(hari)
+            price = get_price(hari)
             c.user_data["buat_step"] = None; c.user_data["buat_data"] = {}
-            if not owner and get_bal(uid) < price:
+            if get_bal(uid) < price:
                 kb = InlineKeyboardMarkup([
                     [InlineKeyboardButton("💰 ISI SALDO", callback_data="isi_saldo")],
                     [InlineKeyboardButton("🛍️ MENU UTAMA", callback_data="menu|main")]
@@ -1064,7 +1041,10 @@ async def handle_photo(u, c):
     await u.message.reply_text("Gunakan /start", reply_markup=ReplyKeyboardRemove())
 
 async def post_init(app):
-    try: await app.bot.set_my_commands([BotCommand("start","Start")])
+    try:
+        await app.bot.set_my_commands([
+            BotCommand("start", "⌂ Menu")
+        ])
     except: pass
     asyncio.create_task(auto_cleanup_task())
     ok, msg = await asyncio.to_thread(ssh_test)

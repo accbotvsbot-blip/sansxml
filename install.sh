@@ -1,7 +1,5 @@
-cat > /root/install.sh << 'PART1EOF'
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
-
 CYAN='\033[1;36m'; GREEN='\033[1;32m'; RED='\033[1;31m'
 YELLOW='\033[1;33m'; MAGENTA='\033[1;35m'; WHITE='\033[1;37m'; NC='\033[0m'
 
@@ -14,7 +12,7 @@ read -p "$(echo -e ${GREEN}'Lanjut install? (y/n): '${NC})" OK
 [ "$OK" != "y" ] && [ "$OK" != "Y" ] && exit 0
 echo ""
 
-echo -e "${CYAN}[CLEAN 1/4]${NC} Stop service VPN lama..."
+echo -e "${CYAN}[CLEAN 1/4]${NC} Stop service lama..."
 for svc in ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot xray; do
     systemctl stop "$svc" 2>/dev/null
     systemctl disable "$svc" 2>/dev/null
@@ -24,29 +22,27 @@ systemctl daemon-reload
 systemctl reset-failed 2>/dev/null
 echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[CLEAN 2/4]${NC} Kill proses & buka port..."
-fuser -k 80/tcp 8080/tcp 443/tcp 8443/tcp 10001/tcp 10002/tcp 10003/tcp 2>/dev/null
+echo -e "${CYAN}[CLEAN 2/4]${NC} Kill port..."
+fuser -k 80/tcp 8080/tcp 443/tcp 8443/tcp 2>/dev/null
 pkill -f ws-ssh.py 2>/dev/null
 pkill -f badvpn-udpgw 2>/dev/null
 pkill -f vpnbot 2>/dev/null
 sleep 2
 echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[CLEAN 3/4]${NC} Hapus file VPN lama..."
-rm -f /usr/local/bin/ws-ssh.py
-rm -f /etc/stunnel/stunnel.conf /etc/stunnel/stunnel.pem
-rm -f /usr/bin/badvpn-udpgw
-rm -f /usr/local/bin/vps-menu
+echo -e "${CYAN}[CLEAN 3/4]${NC} Hapus file lama..."
+rm -f /usr/local/bin/ws-ssh.py /etc/stunnel/stunnel.conf /etc/stunnel/stunnel.pem
+rm -f /usr/bin/badvpn-udpgw /usr/local/bin/vps-menu
 rm -f /etc/profile.d/sansxml-menu.sh
 rm -f /root/bot.py /root/vpnbot.log /root/vpnbot_*.json
 rm -f /root/.ssh/id_bot /root/.ssh/id_bot.pub
 rm -f /etc/issue /etc/issue.net /etc/motd
 rm -f /etc/ssh/sshd_config.d/99-vpnbot.conf
-rm -f /etc/sansxml-*
+rm -f /etc/sansxml-* /root/.bash_profile
 rm -rf /tmp/badvpn
 echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[CLEAN 4/4]${NC} Hapus user SSH lama..."
+echo -e "${CYAN}[CLEAN 4/4]${NC} Hapus user lama..."
 COUNT=0
 for u in $(awk -F: '$3>=1000 && $3<65000 {print $1}' /etc/passwd); do
     if [ "$u" != "ubuntu" ] && [ "$u" != "admin" ]; then
@@ -58,20 +54,20 @@ done
 sed -i '/vps-menu/d' /root/.bashrc 2>/dev/null
 echo -e "${GREEN}  ✓ $COUNT user dihapus${NC}"
 
-echo -e "${CYAN}[1/8]${NC} Install packages..."
+echo -e "${CYAN}[1/9]${NC} Install packages..."
 apt-get update -y >/dev/null 2>&1
 apt-get install -y python3 python3-pip python3-venv sshpass curl wget unzip \
     stunnel4 net-tools cron ufw iptables openssl \
     cmake build-essential git pkg-config bc jq >/dev/null 2>&1
 echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[2/8]${NC} Telegram API..."
+echo -e "${CYAN}[2/9]${NC} Telegram API..."
 pip3 install --break-system-packages --upgrade pip >/dev/null 2>&1
 pip3 install --break-system-packages --upgrade "python-telegram-bot>=20" requests qrcode pillow >/dev/null 2>&1 \
   || pip3 install --upgrade "python-telegram-bot>=20" requests qrcode pillow >/dev/null 2>&1
 echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[3/8]${NC} SSH key..."
+echo -e "${CYAN}[3/9]${NC} SSH key..."
 mkdir -p /root/.ssh; chmod 700 /root/.ssh
 ssh-keygen -t ed25519 -f /root/.ssh/id_bot -N "" -q
 cat /root/.ssh/id_bot.pub >> /root/.ssh/authorized_keys
@@ -79,7 +75,7 @@ sort -u /root/.ssh/authorized_keys -o /root/.ssh/authorized_keys
 chmod 600 /root/.ssh/authorized_keys
 echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[4/8]${NC} WS-SSH..."
+echo -e "${CYAN}[4/9]${NC} WS-SSH..."
 cat > /usr/local/bin/ws-ssh.py << 'PYEOF'
 #!/usr/bin/env python3
 import socket, threading, sys, hashlib, base64, time
@@ -99,15 +95,12 @@ def forward(src, dst, tag):
         try: dst.shutdown(socket.SHUT_WR)
         except: pass
 def handle(client, addr):
-    log(f"<- {addr}")
     try:
         client.settimeout(3)
         first = b""
         try: first = client.recv(4096)
         except socket.timeout: pass
-        if not first: log(f"<-> {addr} RAW")
-        elif first.startswith(b"SSH-") or b"SSH-2.0" in first[:64]: log(f"<-> {addr} SSH raw")
-        elif first.startswith((b"GET ", b"POST ", b"CONNECT ", b"HEAD ", b"PUT ", b"OPTIONS ")):
+        if first and first.startswith((b"GET ",b"POST ",b"CONNECT ",b"HEAD ",b"PUT ",b"OPTIONS ")):
             header = first
             try:
                 while b"\r\n\r\n" not in header and len(header) < 65536:
@@ -121,24 +114,18 @@ def handle(client, addr):
                     key = line.split(b":", 1)[1].strip(); break
             accept = (base64.b64encode(hashlib.sha1(key + GUID).digest()) if key else b"s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")
             client.sendall(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + accept + b"\r\n\r\n")
-            log(f"<-> {addr} WS OK")
-        try: ssh = socket.create_connection((SSH_HOST, SSH_PORT), timeout=10)
-        except Exception as e: log(f"X sshd: {e}"); client.close(); return
-        log(f"OK {addr} -> SSH")
+        ssh = socket.create_connection((SSH_HOST, SSH_PORT), timeout=10)
         ssh.settimeout(None); client.settimeout(None)
-        if first and not first.startswith((b"GET ", b"POST ", b"CONNECT ", b"HEAD ", b"PUT ", b"OPTIONS ")):
-            try: ssh.sendall(first)
-            except: pass
+        if first and not first.startswith((b"GET ",b"POST ",b"CONNECT ",b"HEAD ",b"PUT ",b"OPTIONS ")):
+            ssh.sendall(first)
         t1 = threading.Thread(target=forward, args=(client, ssh, "C>S"), daemon=True)
         t2 = threading.Thread(target=forward, args=(ssh, client, "S>C"), daemon=True)
         t1.start(); t2.start(); t1.join(); t2.join()
-        try: ssh.close()
-        except: pass
-    except Exception as e: log(f"handler: {e}")
+        ssh.close()
+    except: pass
     finally:
         try: client.close()
         except: pass
-        log(f"X {addr}")
 def main():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -148,7 +135,7 @@ def main():
         try:
             c, a = s.accept()
             threading.Thread(target=handle, args=(c, a), daemon=True).start()
-        except Exception as e: log(f"accept: {e}")
+        except: pass
 if __name__ == "__main__": main()
 PYEOF
 chmod +x /usr/local/bin/ws-ssh.py
@@ -182,7 +169,7 @@ WantedBy=multi-user.target
 SVCEOF
 echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[5/8]${NC} stunnel..."
+echo -e "${CYAN}[5/9]${NC} stunnel SSL..."
 mkdir -p /etc/stunnel
 openssl req -new -x509 -days 3650 -nodes \
     -out /etc/stunnel/stunnel.pem -keyout /etc/stunnel/stunnel.pem \
@@ -212,7 +199,7 @@ STEOF
 sed -i 's/^ENABLED=.*/ENABLED=1/' /etc/default/stunnel4 2>/dev/null || echo "ENABLED=1" >> /etc/default/stunnel4
 echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[6/8]${NC} UDPGW (5-8 menit)..."
+echo -e "${CYAN}[6/9]${NC} UDPGW..."
 rm -rf /tmp/badvpn
 git clone --depth=1 https://github.com/ambrop72/badvpn.git /tmp/badvpn 2>/dev/null
 if [ -d /tmp/badvpn ]; then
@@ -234,12 +221,10 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 SVCEOF
-echo -e "${GREEN}  ✓${NC}"
-else
-echo -e "${YELLOW}  ⚠ Skip${NC}"
 fi
+echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[7/8]${NC} Firewall..."
+echo -e "${CYAN}[7/9]${NC} Firewall..."
 ufw --force disable >/dev/null 2>&1
 ufw --force reset >/dev/null 2>&1
 ufw default allow incoming >/dev/null 2>&1
@@ -250,7 +235,7 @@ ufw allow 1:65535/udp >/dev/null 2>&1
 ufw --force enable >/dev/null 2>&1
 echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[8/8]${NC} Start services..."
+echo -e "${CYAN}[8/9]${NC} Start services..."
 systemctl daemon-reload
 systemctl enable ws-ssh ws-ssh-alt stunnel4 >/dev/null 2>&1
 systemctl restart ws-ssh ws-ssh-alt stunnel4
@@ -258,14 +243,7 @@ systemctl restart ws-ssh ws-ssh-alt stunnel4
 sleep 3
 echo -e "${GREEN}  ✓${NC}"
 
-PART1EOF
-
-echo "✅ Part 1 tersimpan"
-
-
-cat >> /root/install.sh << 'PART2EOF'
-
-echo -e "${CYAN}Install Menu VPS...${NC}"
+echo -e "${CYAN}[9/9]${NC} Menu VPS + Bot + Banner..."
 cat > /usr/local/bin/vps-menu << 'MENUEOF'
 #!/bin/bash
 CYAN='\033[1;36m'; GREEN='\033[1;32m'; RED='\033[1;31m'
@@ -278,13 +256,7 @@ show(){
     clear
     UP=$(uptime -p 2>/dev/null | sed 's/up //')
     IP=$(curl -s -m 3 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
-    OS=$(lsb_release -d 2>/dev/null | cut -f2 || grep PRETTY_NAME /etc/os-release | cut -d'"' -f2)
-    K=$(uname -r); CPU=$(nproc)
-    RT=$(free -m | awk '/Mem:/ {print $2}')
-    RU=$(free -m | awk '/Mem:/ {print $3}')
-    RP=$(( RU * 100 / RT ))
-    DP=$(df -h / | awk 'NR==2 {print $5}')
-    AK=$(awk -F: '$3>=1000 && $3<65000 {print $1}' /etc/passwd | wc -l)
+    AK=$(awk -F: '$3>=1000 && $3<65000' /etc/passwd | wc -l)
     TS="${BOT_TOKEN:0:20}..."
     echo ""
     echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -293,10 +265,8 @@ show(){
     echo -e "  ${WHITE}Domain${NC} : ${GREEN}$DOMAIN${NC}"
     echo -e "  ${WHITE}Admin ${NC} : ${GREEN}$ADMIN_ID${NC}"
     echo -e "  ${WHITE}Token ${NC} : ${CYAN}$TS${NC}"
-    echo -e "  ${WHITE}OS    ${NC} : ${CYAN}$OS${NC}"
-    echo -e "  ${WHITE}CPU   ${NC} : ${CYAN}${CPU} vCPU${NC}  ${WHITE}RAM${NC}: ${CYAN}${RU}/${RT} MB${NC} (${YELLOW}${RP}%${NC})"
-    echo -e "  ${WHITE}Disk  ${NC} : ${CYAN}${DP}${NC}  ${WHITE}Uptime${NC}: ${CYAN}$UP${NC}"
     echo -e "  ${WHITE}IP    ${NC} : ${CYAN}$IP${NC}   ${WHITE}Akun${NC}: ${YELLOW}$AK${NC}"
+    echo -e "  ${WHITE}Uptime${NC} : ${CYAN}$UP${NC}"
     echo -e "  ${MAGENTA}─────────────────────────────────────────${NC}"
     echo -e "  ${WHITE}Services${NC}: $(cek ssh)SSH  $(cek ws-ssh)WS  $(cek stunnel4)SSL  $(cek udpgw)UDP  $(cek vpnbot)BOT"
     echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -320,9 +290,15 @@ while true; do
         3) clear; read -p "  Username: " U; read -p "  Password: " PW; read -p "  Hari: " H
            [ -z "$U" ] || [ -z "$PW" ] || [ -z "$H" ] && { pause; continue; }
            EXP=$(date -d "+${H} days" +%Y-%m-%d)
-           userdel -r "$U" 2>/dev/null; useradd -e "$EXP" -m -s /bin/bash "$U"
-           echo "$U:$PW" | chpasswd; passwd -u "$U" 2>/dev/null
-           echo -e "  ${GREEN}✅ Akun: $U / $PW / $EXP${NC}"; pause ;;
+           userdel -r "$U" 2>/dev/null
+           useradd -m -s /bin/bash "$U"
+           chage -E "$EXP" "$U" 2>/dev/null
+           chage -M 99999 "$U" 2>/dev/null
+           echo "$U:$PW" | chpasswd
+           passwd -u "$U" 2>/dev/null
+           echo -e "  ${GREEN}✅ Akun: $U / $PW / $EXP${NC}"
+           chage -l "$U" | head -3
+           pause ;;
         4) clear; awk -F: '$3>=1000 && $3<65000 {print "  "$1}' /etc/passwd
            read -p "  Username: " U; [ -z "$U" ] && { pause; continue; }
            pkill -9 -u "$U" 2>/dev/null; userdel -r "$U" 2>/dev/null
@@ -369,18 +345,23 @@ while true; do
             rm -rf /tmp/* /var/tmp/* 2>/dev/null
             echo -e "  ${GREEN}✅ VPS dibersihkan${NC}"; pause ;;
         0) clear; exit 0 ;;
+        *) ;;
     esac
 done
 MENUEOF
 chmod +x /usr/local/bin/vps-menu
 
 cat > /etc/profile.d/sansxml-menu.sh << 'PROFEOF'
-if [ -n "$SSH_CONNECTION" ] && [ "$USER" != "root" ]; then
+if [ -n "$SSH_CONNECTION" ]; then
     /usr/local/bin/vps-menu
 fi
 PROFEOF
 chmod +x /etc/profile.d/sansxml-menu.sh
-grep -q "vps-menu" /root/.bashrc 2>/dev/null || echo '[ -n "$SSH_CONNECTION" ] && /usr/local/bin/vps-menu' >> /root/.bashrc
+cat > /root/.bash_profile << 'BPEOF'
+[ -n "$SSH_CONNECTION" ] && /usr/local/bin/vps-menu
+BPEOF
+grep -q "vps-menu" /root/.bashrc 2>/dev/null && sed -i '/vps-menu/d' /root/.bashrc
+echo '[ -n "$SSH_CONNECTION" ] && /usr/local/bin/vps-menu' >> /root/.bashrc
 
 clear
 echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
@@ -395,17 +376,14 @@ echo "$DOMAIN" > /etc/sansxml-domain
 echo "$BOT_TOKEN" > /etc/sansxml-bottoken
 echo "$ADMIN_ID" > /etc/sansxml-adminid
 
-WA_LINK="wa.me/6289527419748"
-TG_LINK="t.me/unokwn"
-
 rm -f /etc/issue /etc/issue.net /etc/motd
 rm -rf /etc/motd.d/* 2>/dev/null
 chmod -x /etc/update-motd.d/* 2>/dev/null
 rm -f /etc/update-motd.d/* 2>/dev/null
 
-cat > /etc/issue.net << BANNER_EOF
-<br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卐&nbsp;</b></font><font color="#ffff00"><b>SANSXML&nbsp;VPN&nbsp;STORE</b></font><font color="#ffffff"><b>&nbsp;卐&nbsp;---</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──&nbsp;PREMIUM&nbsp;VPN&nbsp;SERVER&nbsp;──</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卍&nbsp;TERM&nbsp;OF&nbsp;SERVICE&nbsp;卐&nbsp;---</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;MULTI&nbsp;LOGIN&nbsp;!!</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;HACKING&nbsp;AND&nbsp;CARDING</b></font><br><font color="#ffff00"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👉&nbsp;MULTI&nbsp;LOGIN&nbsp;BANNED&nbsp;👈</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ORDER&nbsp;CONFIG&nbsp;PREMIUM:&nbsp;</b></font><font color="#00ff44"><b>${WA_LINK}</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BOT&nbsp;ORDER&nbsp;VPN:&nbsp;</b></font><font color="#00ff44"><b>${TG_LINK}</b></font><br><br>
-BANNER_EOF
+cat > /etc/issue.net << 'BEOF'
+<br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卐&nbsp;</b></font><font color="#ffff00"><b>SANSXML&nbsp;VPN&nbsp;STORE</b></font><font color="#ffffff"><b>&nbsp;卐&nbsp;---</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──&nbsp;PREMIUM&nbsp;VPN&nbsp;SERVER&nbsp;──</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卍&nbsp;TERM&nbsp;OF&nbsp;SERVICE&nbsp;卐&nbsp;---</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;MULTI&nbsp;LOGIN&nbsp;!!</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;HACKING&nbsp;AND&nbsp;CARDING</b></font><br><font color="#ffff00"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👉&nbsp;MULTI&nbsp;LOGIN&nbsp;BANNED&nbsp;👈</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ORDER&nbsp;CONFIG&nbsp;PREMIUM:&nbsp;</b></font><font color="#00ff44"><b>wa.me/6289527419748</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BOT&nbsp;ORDER&nbsp;VPN:&nbsp;</b></font><font color="#00ff44"><b>t.me/unokwn</b></font><br><br>
+BEOF
 cp /etc/issue.net /etc/motd
 
 sed -i '/^[[:space:]]*ListenAddress/d' /etc/ssh/sshd_config
@@ -434,9 +412,6 @@ cat > /root/vpnbot_config.json << CFGEOF
 }
 CFGEOF
 
-echo ""
-echo -e "${CYAN}Menulis bot.py inline...${NC}"
-
 cat > /root/bot.py << 'BOTPYEOF'
 #!/usr/bin/env python3
 import re, io, json, os, logging, subprocess, asyncio, base64, random, string
@@ -454,8 +429,6 @@ def load_config():
             return c
         except: pass
     return d
-def save_config(c):
-    with open(CONFIG_FILE,"w") as f: json.dump(c,f,indent=2)
 CONFIG = load_config()
 BOT_TOKEN = CONFIG["bot_token"]
 ADMIN_IDS = CONFIG["owner_ids"]
@@ -558,12 +531,19 @@ def ssh_run(cmd, timeout=30):
 def ssh_create(username, password, days):
     exp = (datetime.now()+timedelta(days=days)).strftime("%Y-%m-%d")
     pw_b64 = base64.b64encode(password.encode()).decode()
-    cmd = (f"userdel -r {username} 2>/dev/null; "
-           f"useradd -e {exp} -m -s /bin/bash {username} 2>&1 ; "
-           f"PW=\$(echo '{pw_b64}' | base64 -d) ; "
-           f"echo \"{username}:\$PW\" | chpasswd 2>&1 ; "
-           f"passwd -u {username} 2>&1 ; usermod -U {username} 2>&1 ; "
-           f"echo DONE:\$?")
+    cmd = (
+        f"userdel -r {username} 2>/dev/null; "
+        f"useradd -m -s /bin/bash {username} 2>&1 ; "
+        f"chage -E '{exp}' {username} 2>&1 ; "
+        f"chage -M 99999 {username} 2>&1 ; "
+        f"chage -I -1 {username} 2>&1 ; "
+        f"PW=$(echo '{pw_b64}' | base64 -d) ; "
+        f"printf '%s:%s\\n' '{username}' \"$PW\" | chpasswd 2>&1 ; "
+        f"passwd -u {username} 2>&1 ; "
+        f"usermod -U {username} 2>&1 ; "
+        f"echo DONE:$? ; "
+        f"chage -l {username} | head -3"
+    )
     code, out, err = ssh_run(cmd)
     ok = "DONE:0" in out
     return {"ok":True,"username":username,"password":password,"exp":exp,"manual":not ok}
@@ -725,12 +705,6 @@ async def do_create_account(chat, uid, user, username, password, hari, is_trial=
         add_trx(uid, user.first_name or "User", user.username or "", "buat_akun", price, f"{hari}h {server}")
     dl_txt = f"{TRIAL_DURATION_MIN} Minute" if is_trial else f"{hari} Hari"
     await msg.edit_text(acc_caption(username, password, r["exp"], dl_txt, IP_LIMIT, r.get("manual",False), is_trial, server), parse_mode="HTML")
-    for aid in ADMIN_IDS:
-        try:
-            await chat.bot.send_message(chat_id=aid,
-                text=f"💰 <b>AKUN DIBUAT</b>\n\n👤 {user.first_name}\n📦 {server} • SSH {hari}h\n🔑 <code>{username}</code>\n🔒 <code>{password}</code>",
-                parse_mode="HTML")
-        except: pass
 
 async def do_create_trial(chat, uid, user, server="SG NEWMEDIA"):
     if trial_left(uid) <= 0:
@@ -1001,13 +975,6 @@ done
 echo ""
 echo -e "${CYAN}Domain${NC}  : ${GREEN}$DOMAIN${NC}"
 echo -e "${CYAN}Menu${NC}    : ${GREEN}vps-menu${NC}"
-echo -e "${CYAN}Bot log${NC} : ${GREEN}tail -f /root/vpnbot.log${NC}"
 echo ""
 read -p "$(echo -e ${YELLOW}'Buka menu? (y/n): '${NC})" OPEN
 [ "$OPEN" = "y" ] || [ "$OPEN" = "Y" ] && /usr/local/bin/vps-menu
-PART2EOF
-
-echo "✅ Part 2 tersimpan — installer lengkap!"
-echo ""
-echo "Cek file: wc -l /root/install.sh"
-echo "Jalankan: bash /root/install.sh"

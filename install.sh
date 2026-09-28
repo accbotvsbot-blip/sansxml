@@ -562,6 +562,7 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWM
     lines.append(f"Username : {u}")
     lines.append(f"Password : {p}")
     lines.append(f"Quota    : Unlimited")
+    lines.append(f"Limit IP : {ip} IP")
     lines.append("</code>")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
     lines.append("<code>")
@@ -577,7 +578,9 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWM
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
     lines.append("<code>")
     lines.append(f"SSL      : {SSH_HOST}:443@{u}:{p}")
+    lines.append("")
     lines.append(f"WS       : {SSH_HOST}:80@{u}:{p}")
+    lines.append("")
     lines.append(f"UDP      : {SSH_HOST}:1-65535@{u}:{p}")
     lines.append("</code>")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
@@ -587,6 +590,7 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWM
     lines.append(f"Berakhir : {exp_fmt}")
     lines.append("</code>")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("<b>╭───〔 SANSXML VPN STORE 〕───╮</b>")
     lines.append("<i>❖ Terima kasih telah menggunakan layanan kami ❖</i>")
     return "\n".join(lines)
 
@@ -690,8 +694,8 @@ async def cb(u, c):
                 await chat.send_message("❌ Trial habis. Coba besok!", parse_mode="HTML"); return
             use_trial(uid)
             uniq = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
-            username = f"tr-{uniq}"
-            password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+            username = f"trial-{uniq}"
+            password = f"trial{uniq}"
             c.user_data.clear()
             await do_create_account(chat, uid, u.effective_user, username, password, 1, is_trial=True, server=sl)
             return

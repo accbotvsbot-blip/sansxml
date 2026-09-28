@@ -5,7 +5,7 @@ YELLOW='\033[1;33m'; MAGENTA='\033[1;35m'; WHITE='\033[1;37m'; NC='\033[0m'
 
 clear
 echo -e "${MAGENTA}═══════════════════════════════════════════════════════════════${NC}"
-echo -e "${CYAN}     SANSXML VPN — FULL INSTALLER + AUTO CLEAN${NC}"
+echo -e "${CYAN}     SANSXML VPN — FULL INSTALLER v7${NC}"
 echo -e "${MAGENTA}═══════════════════════════════════════════════════════════════${NC}"
 echo ""
 read -p "$(echo -e ${GREEN}'Lanjut install? (y/n): '${NC})" OK
@@ -18,8 +18,7 @@ for svc in ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot xray; do
     systemctl disable "$svc" 2>/dev/null
     rm -f "/etc/systemd/system/${svc}.service"
 done
-systemctl daemon-reload
-systemctl reset-failed 2>/dev/null
+systemctl daemon-reload; systemctl reset-failed 2>/dev/null
 echo -e "${GREEN}  ✓${NC}"
 
 echo -e "${CYAN}[CLEAN 2/4]${NC} Kill port..."
@@ -79,61 +78,57 @@ echo -e "${CYAN}[4/9]${NC} WS-SSH..."
 cat > /usr/local/bin/ws-ssh.py << 'PYEOF'
 #!/usr/bin/env python3
 import socket, threading, sys, hashlib, base64, time
-LISTEN_PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 80
-SSH_HOST = "127.0.0.1"; SSH_PORT = 22; BUFFER = 65536
-GUID = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-def log(m): print(f"[{time.strftime('%H:%M:%S')}] [{LISTEN_PORT}] {m}", flush=True)
-def forward(src, dst, tag):
+LP = int(sys.argv[1]) if len(sys.argv) > 1 else 80
+def log(m): print(f"[{time.strftime('%H:%M:%S')}] [{LP}] {m}", flush=True)
+def fwd(src, dst):
     try:
         while True:
-            data = src.recv(BUFFER)
-            if not data: break
-            dst.sendall(data)
-    except (ConnectionResetError, BrokenPipeError, OSError): pass
-    except Exception as e: log(f"fwd [{tag}] {e}")
+            d = src.recv(65536)
+            if not d: break
+            dst.sendall(d)
+    except: pass
     finally:
         try: dst.shutdown(socket.SHUT_WR)
         except: pass
-def handle(client, addr):
+def handle(c, a):
     try:
-        client.settimeout(3)
+        c.settimeout(3)
         first = b""
-        try: first = client.recv(4096)
-        except socket.timeout: pass
-        if first and first.startswith((b"GET ",b"POST ",b"CONNECT ",b"HEAD ",b"PUT ",b"OPTIONS ")):
-            header = first
+        try: first = c.recv(4096)
+        except: pass
+        if first and first.startswith((b"GET ",b"POST ",b"CONNECT ",b"HEAD ")):
+            h = first
             try:
-                while b"\r\n\r\n" not in header and len(header) < 65536:
-                    c = client.recv(4096)
-                    if not c: break
-                    header += c
-            except socket.timeout: pass
-            key = None
-            for line in header.split(b"\r\n"):
-                if line.lower().startswith(b"sec-websocket-key:"):
-                    key = line.split(b":", 1)[1].strip(); break
-            accept = (base64.b64encode(hashlib.sha1(key + GUID).digest()) if key else b"s3pPLMBiTxaQ9kYGzzhZRbK+xOo=")
-            client.sendall(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + accept + b"\r\n\r\n")
-        ssh = socket.create_connection((SSH_HOST, SSH_PORT), timeout=10)
-        ssh.settimeout(None); client.settimeout(None)
-        if first and not first.startswith((b"GET ",b"POST ",b"CONNECT ",b"HEAD ",b"PUT ",b"OPTIONS ")):
-            ssh.sendall(first)
-        t1 = threading.Thread(target=forward, args=(client, ssh, "C>S"), daemon=True)
-        t2 = threading.Thread(target=forward, args=(ssh, client, "S>C"), daemon=True)
+                while b"\r\n\r\n" not in h and len(h) < 65536:
+                    x = c.recv(4096)
+                    if not x: break
+                    h += x
+            except: pass
+            k = None
+            for l in h.split(b"\r\n"):
+                if l.lower().startswith(b"sec-websocket-key:"):
+                    k = l.split(b":",1)[1].strip(); break
+            acc = base64.b64encode(hashlib.sha1(k + b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest()) if k else b"s3pPLMBiTxaQ9kYGzzhZRbK+xOo="
+            c.sendall(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: " + acc + b"\r\n\r\n")
+        s = socket.create_connection(("127.0.0.1", 22), timeout=10)
+        s.settimeout(None); c.settimeout(None)
+        if first and not first.startswith((b"GET ",b"POST ",b"CONNECT ",b"HEAD ")):
+            s.sendall(first)
+        t1 = threading.Thread(target=fwd, args=(c, s), daemon=True)
+        t2 = threading.Thread(target=fwd, args=(s, c), daemon=True)
         t1.start(); t2.start(); t1.join(); t2.join()
-        ssh.close()
     except: pass
     finally:
-        try: client.close()
+        try: c.close()
         except: pass
 def main():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(("0.0.0.0", LISTEN_PORT)); s.listen(500)
-    log(f"WS-SSH listen :{LISTEN_PORT}")
+    sv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sv.bind(("0.0.0.0", LP)); sv.listen(500)
+    log(f"WS-SSH :{LP}")
     while True:
         try:
-            c, a = s.accept()
+            c, a = sv.accept()
             threading.Thread(target=handle, args=(c, a), daemon=True).start()
         except: pass
 if __name__ == "__main__": main()
@@ -142,7 +137,7 @@ chmod +x /usr/local/bin/ws-ssh.py
 
 cat > /etc/systemd/system/ws-ssh.service << 'SVCEOF'
 [Unit]
-Description=WS-SSH port 80
+Description=WS-SSH 80
 After=network.target
 [Service]
 Type=simple
@@ -156,7 +151,7 @@ SVCEOF
 
 cat > /etc/systemd/system/ws-ssh-alt.service << 'SVCEOF'
 [Unit]
-Description=WS-SSH port 8080
+Description=WS-SSH 8080
 After=network.target
 [Service]
 Type=simple
@@ -169,32 +164,21 @@ WantedBy=multi-user.target
 SVCEOF
 echo -e "${GREEN}  ✓${NC}"
 
-echo -e "${CYAN}[5/9]${NC} stunnel SSL..."
+echo -e "${CYAN}[5/9]${NC} stunnel..."
 mkdir -p /etc/stunnel
-openssl req -new -x509 -days 3650 -nodes \
-    -out /etc/stunnel/stunnel.pem -keyout /etc/stunnel/stunnel.pem \
-    -subj "/C=SG/CN=sansxml.local" 2>/dev/null
-
+openssl req -new -x509 -days 3650 -nodes -out /etc/stunnel/stunnel.pem -keyout /etc/stunnel/stunnel.pem -subj "/CN=sansxml.local" 2>/dev/null
 cat > /etc/stunnel/stunnel.conf << 'STEOF'
 pid = /var/run/stunnel4.pid
 debug = 4
 output = /var/log/stunnel4.log
-socket = l:TCP_NODELAY=1
-socket = r:TCP_NODELAY=1
-
-[ssl-ws-443]
-accept  = 443
+[ssl-443]
+accept = 443
 connect = 127.0.0.1:80
-cert    = /etc/stunnel/stunnel.pem
-TIMEOUTclose = 0
-client = no
-
-[ssl-ws-8443]
-accept  = 8443
+cert = /etc/stunnel/stunnel.pem
+[ssl-8443]
+accept = 8443
 connect = 127.0.0.1:80
-cert    = /etc/stunnel/stunnel.pem
-TIMEOUTclose = 0
-client = no
+cert = /etc/stunnel/stunnel.pem
 STEOF
 sed -i 's/^ENABLED=.*/ENABLED=1/' /etc/default/stunnel4 2>/dev/null || echo "ENABLED=1" >> /etc/default/stunnel4
 echo -e "${GREEN}  ✓${NC}"
@@ -212,11 +196,11 @@ fi
 if [ -f /usr/bin/badvpn-udpgw ]; then
 cat > /etc/systemd/system/udpgw.service << 'SVCEOF'
 [Unit]
-Description=BadVPN UDPGW
+Description=UDPGW
 After=network.target
 [Service]
 Type=simple
-ExecStart=/usr/bin/badvpn-udpgw --listen-addr 0.0.0.0:7300 --max-clients 500 --max-connections-for-client 10
+ExecStart=/usr/bin/badvpn-udpgw --listen-addr 0.0.0.0:7300 --max-clients 500
 Restart=always
 [Install]
 WantedBy=multi-user.target
@@ -266,7 +250,6 @@ show(){
     echo -e "  ${WHITE}Admin ${NC} : ${GREEN}$ADMIN_ID${NC}"
     echo -e "  ${WHITE}Token ${NC} : ${CYAN}$TS${NC}"
     echo -e "  ${WHITE}IP    ${NC} : ${CYAN}$IP${NC}   ${WHITE}Akun${NC}: ${YELLOW}$AK${NC}"
-    echo -e "  ${WHITE}Uptime${NC} : ${CYAN}$UP${NC}"
     echo -e "  ${MAGENTA}─────────────────────────────────────────${NC}"
     echo -e "  ${WHITE}Services${NC}: $(cek ssh)SSH  $(cek ws-ssh)WS  $(cek stunnel4)SSL  $(cek udpgw)UDP  $(cek vpnbot)BOT"
     echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -292,13 +275,9 @@ while true; do
            EXP=$(date -d "+${H} days" +%Y-%m-%d)
            userdel -r "$U" 2>/dev/null
            useradd -m -s /bin/bash "$U"
-           chage -E "$EXP" "$U" 2>/dev/null
-           chage -M 99999 "$U" 2>/dev/null
-           echo "$U:$PW" | chpasswd
-           passwd -u "$U" 2>/dev/null
-           echo -e "  ${GREEN}✅ Akun: $U / $PW / $EXP${NC}"
-           chage -l "$U" | head -3
-           pause ;;
+           chage -E "$EXP" "$U" 2>/dev/null; chage -M 99999 "$U" 2>/dev/null
+           echo "$U:$PW" | chpasswd; passwd -u "$U" 2>/dev/null
+           echo -e "  ${GREEN}✅ Akun: $U / $PW / $EXP${NC}"; chage -l "$U" | head -3; pause ;;
         4) clear; awk -F: '$3>=1000 && $3<65000 {print "  "$1}' /etc/passwd
            read -p "  Username: " U; [ -z "$U" ] && { pause; continue; }
            pkill -9 -u "$U" 2>/dev/null; userdel -r "$U" 2>/dev/null
@@ -360,7 +339,7 @@ chmod +x /etc/profile.d/sansxml-menu.sh
 cat > /root/.bash_profile << 'BPEOF'
 [ -n "$SSH_CONNECTION" ] && /usr/local/bin/vps-menu
 BPEOF
-grep -q "vps-menu" /root/.bashrc 2>/dev/null && sed -i '/vps-menu/d' /root/.bashrc
+sed -i '/vps-menu/d' /root/.bashrc 2>/dev/null
 echo '[ -n "$SSH_CONNECTION" ] && /usr/local/bin/vps-menu' >> /root/.bashrc
 
 clear
@@ -368,9 +347,9 @@ echo -e "${MAGENTA}════════════════════�
 echo -e "${GREEN}         ✓ INSTALASI DASAR SELESAI${NC}"
 echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
 echo ""
-read -p "$(echo -e ${YELLOW}'Domain (contoh: sgivip.naaofficial.web.id) : '${NC})" DOMAIN
-read -p "$(echo -e ${YELLOW}'Bot Token Telegram                         : '${NC})" BOT_TOKEN
-read -p "$(echo -e ${YELLOW}'Admin Telegram ID (contoh: 6144358600)     : '${NC})" ADMIN_ID
+read -p "$(echo -e ${YELLOW}'Domain : '${NC})" DOMAIN
+read -p "$(echo -e ${YELLOW}'Bot Token : '${NC})" BOT_TOKEN
+read -p "$(echo -e ${YELLOW}'Admin ID : '${NC})" ADMIN_ID
 
 echo "$DOMAIN" > /etc/sansxml-domain
 echo "$BOT_TOKEN" > /etc/sansxml-bottoken
@@ -579,14 +558,18 @@ def dashboard_text(user, uid):
         f"╰ Keseluruhan    : <b>{st['total']} Akun</b>\n"
         f"\n"
         f"🌐 <b>Informasi</b>\n"
-        f"├ Server 1       : <b>SG NEWMEDIA</b>\n"
-        f"├ Server 2       : <b>SG LEASWEB</b>\n"
-        f"╰ Kuota Trial    : <b>{trial_left(uid)}x Hari</b>\n"
+        f"├ Server Tersedia : <b>0 Server</b>\n"
+        f"╰ Kuota Trial     : <b>{trial_left(uid)}x Hari</b>\n"
         f"</blockquote>\n"
         f"╰──────────────────────────╯")
 
-def server_list_text():
-    return ("╭──────────〔 <b>SERVER VPN</b> 〕──────────╮\n"
+def pilih_layanan_text():
+    return ("PILIH LAYANAN VPN\n"
+        "\n"
+        "Silakan pilih protokol yang ingin dibuat:")
+
+def ssh_server_text():
+    return ("╭──────────〔 <b>SSH OVPN</b> 〕──────────╮\n"
         "<blockquote>◆ 🇸🇬 <b>SG 1 • NEWMEDIA</b>\n"
         "├ Harga Harian   : <b>Rp 167</b>\n"
         "├ Harga Bulanan  : <b>Rp 5.010</b>\n"
@@ -601,15 +584,27 @@ def server_list_text():
         "╰ Slot Tersedia  : <b>0/100 ✅</b></blockquote>\n"
         "╰────────────────────────────────────╯")
 
-def kb_server_list():
+def kb_pilih_layanan():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🇸🇬 SG NEWMEDIA", callback_data="buat|newmedia"),
-         InlineKeyboardButton("🇸🇬 SG LEASWEB", callback_data="buat|leaseweb")],
-        [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]])
+        [InlineKeyboardButton("➕ SSH OVPN", callback_data="pilih|ssh")],
+        [InlineKeyboardButton("➕ VMESS", callback_data="pilih|vmess"),
+         InlineKeyboardButton("➕ VLESS", callback_data="pilih|vless")],
+        [InlineKeyboardButton("➕ TROJAN", callback_data="pilih|trojan")],
+        [InlineKeyboardButton("🔙 KEMBALI", callback_data="menu|main")]])
+
+def kb_ssh_server():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🇸🇬 SG NEWMEDIA", callback_data="buat|newmedia")],
+        [InlineKeyboardButton("🇸🇬 SG LEASWEB", callback_data="buat|leaseweb")],
+        [InlineKeyboardButton("🔙 KEMBALI", callback_data="pilih_layanan")]])
+
+def kb_coming_soon(proto):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 KEMBALI", callback_data="pilih_layanan")]])
 
 def kb_dashboard(uid):
     rows = [
-        [InlineKeyboardButton("➕ BUAT AKUN", callback_data="server|list"),
+        [InlineKeyboardButton("➕ BUAT AKUN", callback_data="pilih_layanan"),
          InlineKeyboardButton("⌛ TRIAL AKUN", callback_data="trial")],
         [InlineKeyboardButton("👤 AKUN SAYA", callback_data="my_accs"),
          InlineKeyboardButton("♻️ REFRESH", callback_data="menu|main")]]
@@ -736,9 +731,24 @@ async def cb(u, c):
     q = u.callback_query; await q.answer()
     d = q.data; chat = u.effective_chat
     if d == "noop": return
-    if d == "server|list":
-        try: await q.edit_message_text(server_list_text(), reply_markup=kb_server_list(), parse_mode="HTML")
+    if d == "pilih_layanan":
+        c.user_data.clear()
+        try: await q.edit_message_text(pilih_layanan_text(), reply_markup=kb_pilih_layanan(), parse_mode="HTML")
         except: pass
+        return
+    if d.startswith("pilih|"):
+        proto = d.split("|")[1]
+        if proto == "ssh":
+            try: await q.edit_message_text(ssh_server_text(), reply_markup=kb_ssh_server(), parse_mode="HTML")
+            except: pass
+        else:
+            label = proto.upper()
+            try: await q.edit_message_text(
+                f"⚠️ <b>{label} BELUM TERSEDIA</b>\n\n"
+                f"Fitur <b>{label}</b> akan segera hadir.\n"
+                f"Sementara gunakan <b>SSH OVPN</b>.",
+                reply_markup=kb_coming_soon(proto), parse_mode="HTML")
+            except: pass
         return
     if d == "menu|main":
         c.user_data.clear()
@@ -764,7 +774,7 @@ async def cb(u, c):
             except: pass
             accs.append(a)
         if not accs:
-            try: await q.edit_message_text("❌ Belum ada akun.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("➕ Buat", callback_data="server|list")],[InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]]), parse_mode="HTML")
+            try: await q.edit_message_text("❌ Belum ada akun.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("➕ Buat", callback_data="pilih_layanan")],[InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]]), parse_mode="HTML")
             except: pass
             return
         accs.sort(key=lambda x: x.get("created_at",""), reverse=True)

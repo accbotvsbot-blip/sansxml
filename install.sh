@@ -49,7 +49,7 @@ spin $! "Kill port VPN"
   rm -rf /tmp/badvpn ) &
 spin $! "Hapus file lama"
 
-echo -e "  ${GREEN}✓${NC}  ${WHITE}User lama DIBIARKAN (tidak dihapus)${NC}"
+echo -e "  ${GREEN}✓${NC}  ${WHITE}User lama DIBIARKAN${NC}"
 
 echo ""
 echo -e "  ${YELLOW}▸ Install dependencies${NC}"
@@ -267,7 +267,6 @@ systemctl restart ssh 2>/dev/null || systemctl restart sshd
 PART1EOF
 echo "✅ BLOK 1 tersimpan. Lanjut BLOK 2."
 
-
 cat >> /root/install.sh << 'PART2EOF'
 
 echo ""
@@ -443,43 +442,59 @@ def dashboard_text(user, uid):
     uname = f"@{user.username}" if user.username else "-"
     role = "Owner" if is_owner(uid) else "Member"
     st = get_stats(uid)
-    return (f"╭──────〔 <b>SANSXML VPN STORE</b> 〕──────╮\n"
-        f"<blockquote>"
-        f"👤 <b>Profil</b>\n"
-        f"├ User Telegram  : {uname}\n"
-        f"├ Chat ID        : <code>{uid}</code>\n"
-        f"├ Keanggotaan    : {role}\n"
-        f"╰ 💰 Saldo VPN  : <b>{rupiah(get_bal(uid))}</b>\n"
-        f"\n"
-        f"🌍 <b>Info Global</b>\n"
-        f"├ Minggu Ini     : <b>{st['minggu']} Akun</b>\n"
-        f"├ Bulan Ini      : <b>{st['bulan']} Akun</b>\n"
-        f"╰ Keseluruhan    : <b>{st['total']} Akun</b>\n"
-        f"\n"
-        f"🌐 <b>Informasi</b>\n"
-        f"├ Server Tersedia : <b>2 Server</b>\n"
-        f"╰ Kuota Trial     : <b>{trial_left(uid)}x Hari</b>\n"
-        f"</blockquote>\n"
-        f"╰──────────────────────────╯")
+    lines = []
+    lines.append("<blockquote>")
+    lines.append("╭──────〔 <b>SANSXML VPN STORE</b> 〕──────╮")
+    lines.append("👤 <b>Profil</b>")
+    lines.append(f"├ User Telegram  : {uname}")
+    lines.append(f"├ Chat ID        : <code>{uid}</code>")
+    lines.append(f"├ Keanggotaan    : {role}")
+    lines.append(f"╰ 💰 Saldo VPN  : <b>{rupiah(get_bal(uid))}</b>")
+    lines.append("")
+    lines.append("🌍 <b>Info Global</b>")
+    lines.append(f"├ Minggu Ini     : <b>{st['minggu']} Akun</b>")
+    lines.append(f"├ Bulan Ini      : <b>{st['bulan']} Akun</b>")
+    lines.append(f"╰ Keseluruhan    : <b>{st['total']} Akun</b>")
+    lines.append("")
+    lines.append("🌐 <b>Informasi</b>")
+    lines.append("├ Server Tersedia : <b>2 Server</b>")
+    lines.append(f"╰ Kuota Trial     : <b>{trial_left(uid)}x Hari</b>")
+    lines.append("╰──────────────────────────╯")
+    lines.append("</blockquote>")
+    return "\n".join(lines)
 
 def pilih_layanan_text():
-    return "<b>PILIH LAYANAN VPN</b>\n\nSilakan pilih protokol yang ingin dibuat:"
+    lines = []
+    lines.append("<blockquote>")
+    lines.append("<b>PILIH LAYANAN VPN</b>")
+    lines.append("")
+    lines.append("Silakan pilih protokol yang ingin dibuat:")
+    lines.append("</blockquote>")
+    return "\n".join(lines)
 
 def ssh_server_text():
-    return ("╭──────────〔 <b>SSH OVPN</b> 〕──────────╮\n"
-        "<blockquote>◆ 🇸🇬 <b>SG 1 • NEWMEDIA</b>\n"
-        "├ Harga Harian   : <b>Rp 167</b>\n"
-        "├ Harga Bulanan  : <b>Rp 5.000</b>\n"
-        "├ Kuota          : Unlimited\n"
-        "├ Limit IP       : 2 IP\n"
-        "╰ Slot Tersedia  : <b>0/100 ✅</b></blockquote>\n"
-        "<blockquote>◆ 🇸🇬 <b>SG 2 • LEASEWEB</b>\n"
-        "├ Harga Harian   : <b>Rp 167</b>\n"
-        "├ Harga Bulanan  : <b>Rp 5.000</b>\n"
-        "├ Kuota          : Unlimited\n"
-        "├ Limit IP       : 2 IP\n"
-        "╰ Slot Tersedia  : <b>0/100 ✅</b></blockquote>\n"
-        "╰────────────────────────────────────╯")
+    lines = []
+    lines.append("<blockquote>")
+    lines.append("╭──────────〔 <b>SSH OVPN</b> 〕──────────╮")
+    lines.append("")
+    lines.append("◆ 🇸🇬 <b>SG 1 • NEWMEDIA</b>")
+    lines.append("├ Harga Harian   : <b>Rp 167</b>")
+    lines.append("├ Harga Bulanan  : <b>Rp 5.000</b>")
+    lines.append("├ Kuota          : Unlimited")
+    lines.append("├ Limit IP       : 2 IP")
+    lines.append("╰ Slot Tersedia  : <b>0/100 ✅</b>")
+    lines.append("")
+    lines.append("")
+    lines.append("◆ 🇸🇬 <b>SG 2 • LEASEWEB</b>")
+    lines.append("├ Harga Harian   : <b>Rp 167</b>")
+    lines.append("├ Harga Bulanan  : <b>Rp 5.000</b>")
+    lines.append("├ Kuota          : Unlimited")
+    lines.append("├ Limit IP       : 2 IP")
+    lines.append("╰ Slot Tersedia  : <b>0/100 ✅</b>")
+    lines.append("")
+    lines.append("╰────────────────────────────────────╯")
+    lines.append("</blockquote>")
+    return "\n".join(lines)
 
 def kb_pilih_layanan():
     return InlineKeyboardMarkup([
@@ -499,8 +514,8 @@ def kb_coming_soon(p): return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 
 
 def kb_dashboard(uid):
     rows = [
-        [InlineKeyboardButton("➕ BUAT AKUN", callback_data="pilih_layanan"),
-         InlineKeyboardButton("⌛ TRIAL AKUN", callback_data="pilih_layanan")],
+        [InlineKeyboardButton("➕ BUAT AKUN", callback_data="buat_akun"),
+         InlineKeyboardButton("⌛ TRIAL AKUN", callback_data="trial_akun")],
         [InlineKeyboardButton("👤 AKUN SAYA", callback_data="my_accs"),
          InlineKeyboardButton("♻️ REFRESH", callback_data="menu|main")]]
     if is_owner(uid): rows.append([InlineKeyboardButton("⚙️ Admin Panel", callback_data="admin|menu")])
@@ -538,18 +553,42 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWM
         created_fmt = f"{created.day} {BULAN_ID[created.month-1]}, {created.year}"
     except: exp_fmt = exp; created_fmt = "-"
     sn = server.replace("🇸🇬 ","").strip()
-    return (f"◤ <b>SSH OVPN ACCOUNT</b> ◢\n"
-        f"     ❖ <b>{head}</b> ❖\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"<code>Server   : {sn}\nUsername : {u}\nPassword : {p}\nQuota    : Unlimited\n</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"<code>Host     : {SSH_HOST}\nOpenSSH  : 443, 80, 22\nDropbear : 443, 109\nSSH WS   : 80, 8080, 8081-9999\nSSH SSL  : 443\nSSH UDP  : 1-65535\nOVPN     : 443, 1194, 2200\nBadVPN   : 7100, 7300\n</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"<code>SSL      : {SSH_HOST}:443@{u}:{p}\nWS       : {SSH_HOST}:80@{u}:{p}\nUDP      : {SSH_HOST}:1-65535@{u}:{p}\n</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"<code>Durasi   : {dl}\nDibuat   : {created_fmt}\nBerakhir : {exp_fmt}\n</code>\n"
-        f"━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"<i>❖ Terima kasih telah menggunakan layanan kami ❖</i>")
+    lines = []
+    lines.append("◤ <b>SSH OVPN ACCOUNT</b> ◢")
+    lines.append(f"     ❖ <b>{head}</b> ❖")
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("<code>")
+    lines.append(f"Server   : {sn}")
+    lines.append(f"Username : {u}")
+    lines.append(f"Password : {p}")
+    lines.append(f"Quota    : Unlimited")
+    lines.append("</code>")
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("<code>")
+    lines.append(f"Host     : {SSH_HOST}")
+    lines.append("OpenSSH  : 443, 80, 22")
+    lines.append("Dropbear : 443, 109")
+    lines.append("SSH WS   : 80, 8080, 8081-9999")
+    lines.append("SSH SSL  : 443")
+    lines.append("SSH UDP  : 1-65535")
+    lines.append("OVPN     : 443, 1194, 2200")
+    lines.append("BadVPN   : 7100, 7300")
+    lines.append("</code>")
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("<code>")
+    lines.append(f"SSL      : {SSH_HOST}:443@{u}:{p}")
+    lines.append(f"WS       : {SSH_HOST}:80@{u}:{p}")
+    lines.append(f"UDP      : {SSH_HOST}:1-65535@{u}:{p}")
+    lines.append("</code>")
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("<code>")
+    lines.append(f"Durasi   : {dl}")
+    lines.append(f"Dibuat   : {created_fmt}")
+    lines.append(f"Berakhir : {exp_fmt}")
+    lines.append("</code>")
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("<i>❖ Terima kasih telah menggunakan layanan kami ❖</i>")
+    return "\n".join(lines)
 
 async def do_create_account(chat, uid, user, username, password, hari, is_trial=False, server="SG NEWMEDIA"):
     owner = is_owner(uid)
@@ -613,8 +652,18 @@ async def cb(u, c):
     q = u.callback_query; await q.answer()
     d = q.data; chat = u.effective_chat
     if d == "noop": return
+    if d == "buat_akun":
+        c.user_data.clear(); c.user_data["mode"] = "buat"
+        try: await q.edit_message_text(pilih_layanan_text(), reply_markup=kb_pilih_layanan(), parse_mode="HTML")
+        except: pass
+        return
+    if d == "trial_akun":
+        c.user_data.clear(); c.user_data["mode"] = "trial"
+        try: await q.edit_message_text(pilih_layanan_text(), reply_markup=kb_pilih_layanan(), parse_mode="HTML")
+        except: pass
+        return
     if d == "pilih_layanan":
-        c.user_data.clear()
+        c.user_data["mode"] = "buat"
         try: await q.edit_message_text(pilih_layanan_text(), reply_markup=kb_pilih_layanan(), parse_mode="HTML")
         except: pass
         return
@@ -635,26 +684,62 @@ async def cb(u, c):
     if d.startswith("buat|"):
         sc = d.split("|")[1]
         sl = {"newmedia":"🇸🇬 SG NEWMEDIA","leaseweb":"🇸🇬 SG LEASWEB"}.get(sc,"🇸🇬 SG NEWMEDIA")
-        c.user_data["buat_step"] = "username"; c.user_data["buat_data"] = {"server":sl}
-        await chat.send_message("👤 <b>Masukkan username akun :</b>", parse_mode="HTML")
-        return
+        mode = c.user_data.get("mode", "buat")
+        if mode == "trial":
+            if trial_left(uid) <= 0:
+                await chat.send_message("❌ Trial habis. Coba besok!", parse_mode="HTML"); return
+            use_trial(uid)
+            uniq = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
+            username = f"tr-{uniq}"
+            password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=6))
+            c.user_data.clear()
+            await do_create_account(chat, uid, u.effective_user, username, password, 1, is_trial=True, server=sl)
+            return
+        else:
+            c.user_data["buat_step"] = "username"
+            c.user_data["buat_data"] = {"server": sl}
+            await chat.send_message("👤 <b>Masukkan username akun :</b>", parse_mode="HTML")
+            return
     if d == "my_accs":
         accs = []
         for a in get_user_accs(uid):
             if a.get("is_trial",False): continue
-            if a.get("free_owner",False): continue
             try:
                 ed = datetime.strptime(a["exp"],"%Y-%m-%d").date()
                 if (ed - datetime.now().date()).days < 0: continue
             except: pass
             accs.append(a)
         if not accs:
-            try: await q.edit_message_text("❌ Belum ada akun premium aktif.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("➕ Buat", callback_data="pilih_layanan")],[InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]]), parse_mode="HTML")
+            empty_txt = []
+            empty_txt.append("<blockquote>")
+            empty_txt.append("╭──────〔 <b>AKUN SAYA</b> 〕──────╮")
+            empty_txt.append("")
+            empty_txt.append("📭 <b>Belum ada akun premium</b>")
+            empty_txt.append("")
+            empty_txt.append("Anda belum memiliki akun VPN aktif.")
+            empty_txt.append("Silakan buat akun terlebih dahulu.")
+            empty_txt.append("")
+            empty_txt.append("╰──────────────────────────╯")
+            empty_txt.append("</blockquote>")
+            try: await q.edit_message_text("\n".join(empty_txt),
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("➕ Buat Akun", callback_data="buat_akun")],
+                    [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]]),
+                parse_mode="HTML")
             except: pass
             return
         rows = [[InlineKeyboardButton(f"👤 {a['username']}", callback_data=f"acc_detail|{a['username']}")] for a in accs[:20]]
         rows.append([InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")])
-        try: await q.edit_message_text(dashboard_text(u.effective_user, uid), reply_markup=InlineKeyboardMarkup(rows), parse_mode="HTML")
+        hdr = []
+        hdr.append("<blockquote>")
+        hdr.append("╭──────〔 <b>AKUN SAYA</b> 〕──────╮")
+        hdr.append("")
+        hdr.append(f"📊 <b>Total Akun</b> : <b>{len(accs)}</b>")
+        hdr.append("")
+        hdr.append("👇 Klik akun di bawah untuk detail")
+        hdr.append("╰──────────────────────────╯")
+        hdr.append("</blockquote>")
+        try: await q.edit_message_text("\n".join(hdr), reply_markup=InlineKeyboardMarkup(rows), parse_mode="HTML")
         except: pass
         return
     if d.startswith("acc_detail|"):
@@ -893,7 +978,7 @@ echo ""
 PART2EOF
 
 chmod +x /root/install.sh
-echo "✅ INSTALLER LENGKAP: /root/install.sh"
+echo "✅ INSTALLER SIAP: /root/install.sh"
 wc -l /root/install.sh
 echo ""
 echo "Jalankan: bash /root/install.sh"

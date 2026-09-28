@@ -233,24 +233,24 @@ cat > /root/vpnbot_config.json << CFGEOF
   "owner_ids": [${ADMIN_ID}],
   "servers": {
     "sg_1ip": {
-      "name": "🇸🇬 DIGITALOCEAN • PRIME SG-01",
+      "name": "🇸🇬 PRIME SG-01",
       "city": "Singapore",
       "isp": "DigitalOcean LLC",
       "ssh_ovpn": "DIGITALOCEAN • PRIME SG-01",
       "domain": "${DOMAIN}",
-      "price_day": 167,
-      "price_month": 5000,
+      "price_day": 117,
+      "price_month": 3500,
       "ip_limit": 1,
       "slot_max": 50
     },
     "sg_2ip": {
-      "name": "🇸🇬 DIGITALOCEAN • PRIME SG-01",
+      "name": "🇸🇬 PRIME SG-02",
       "city": "Singapore",
       "isp": "DigitalOcean LLC",
-      "ssh_ovpn": "DIGITALOCEAN • PRIME SG-01",
+      "ssh_ovpn": "DIGITALOCEAN • PRIME SG-02",
       "domain": "${DOMAIN}",
-      "price_day": 250,
-      "price_month": 7500,
+      "price_day": 167,
+      "price_month": 5010,
       "ip_limit": 2,
       "slot_max": 50
     }
@@ -326,8 +326,8 @@ def get_price(hari, server_key=None):
     if server_key and server_key in SERVERS:
         srv = SERVERS[server_key]
     else:
-        srv = list(SERVERS.values())[0] if SERVERS else {"price_day": 167}
-    price_day = int(srv.get("price_day", 167))
+        srv = list(SERVERS.values())[0] if SERVERS else {"price_day": 117}
+    price_day = int(srv.get("price_day", 117))
     return price_day * int(hari)
 
 USERS_FILE="/root/vpnbot_users.json"; BAL_FILE="/root/vpnbot_balance.json"
@@ -565,8 +565,7 @@ def kb_ssh_server():
         for j in range(i, min(i+2, len(keys))):
             k = keys[j]
             srv = SERVERS[k]
-            # Label: nama server + IP count
-            label = f"{srv['name']} • {srv['ip_limit']} IP"
+            label = f"{srv['name']}"
             row.append(InlineKeyboardButton(label, callback_data=f"buat|{k}"))
         rows.append(row)
     rows.append([InlineKeyboardButton("🔙 KEMBALI", callback_data="pilih_layanan")])
@@ -580,7 +579,7 @@ def kb_ssh_server_extend():
         for j in range(i, min(i+2, len(keys))):
             k = keys[j]
             srv = SERVERS[k]
-            label = f"{srv['name']} • {srv['ip_limit']} IP"
+            label = f"{srv['name']}"
             row.append(InlineKeyboardButton(label, callback_data=f"extend|{k}"))
         rows.append(row)
     rows.append([InlineKeyboardButton("🔙 KEMBALI", callback_data="menu|main")])
@@ -647,18 +646,6 @@ def kb_acc_detail(un):
         [InlineKeyboardButton("🗑️ Hapus", callback_data=f"del_acc|{un}")],
         [InlineKeyboardButton("🔙 Kembali", callback_data="my_accs")]])
 
-def kb_after_acc(mode="buat"):
-    """Tombol setelah akun dibuat/diperpanjang."""
-    if mode == "extend":
-        return InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔄 Perpanjang Lagi", callback_data="pilih_layanan")],
-            [InlineKeyboardButton("🔙 MENU UTAMA", callback_data="menu|main")]
-        ])
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔄 Buat Lagi", callback_data="pilih_layanan")],
-        [InlineKeyboardButton("🔙 MENU UTAMA", callback_data="menu|main")]
-    ])
-
 def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server_key="sg_1ip"):
     srv = SERVERS.get(server_key, {})
     head = "TRIAL" if is_trial else ("MANUAL" if manual else "PREMIUM")
@@ -672,8 +659,12 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server_key="sg_
         created = now - timedelta(days=days_int)
         created_fmt = f"{created.day} {BULAN_ID[created.month-1]}, {created.year}"
     except: exp_fmt = exp; created_fmt = "-"
-    # SSH OVPN: pakai ssh_ovpn kalau ada, fallback ke nama server tanpa emoji
+
     ssh_ovpn_val = srv.get("ssh_ovpn") or srv.get("name","SG NEWMEDIA").replace("🇸🇬 ","").strip()
+
+    # PAYLOAD (WS & TLS berbeda)
+    payload_ws = "GET /cdn-cgi/trace HTTP/1.1[crlf]Host: Bug_Kalian[crlf][crlf]GET-RAY / HTTP/1.1[crlf]Host: [host][crlf]Connection: Upgrade[crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf][crlf]"
+    payload_tls = "GET / HTTP/1.1[crlf]Host: [host][crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf]Connection: Upgrade[crlf][crlf]"
 
     lines = []
     lines.append("◤ <b>SSH OVPN ACCOUNT</b> ◢")
@@ -707,23 +698,29 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server_key="sg_
     lines.append("")
     lines.append("<code>")
     lines.append(f"SSL      : {SSH_HOST}:443@{u}:{p}")
-    lines.append("")
     lines.append(f"WS       : {SSH_HOST}:80@{u}:{p}")
-    lines.append("")
     lines.append(f"UDP      : {SSH_HOST}:1-65535@{u}:{p}")
     lines.append("</code>")
     lines.append("")
+    lines.append("<blockquote>")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
     lines.append("")
-    lines.append("<code>")
+    lines.append("<b>PAYLOAD WS</b>")
+    lines.append(payload_ws)
+    lines.append("")
+    lines.append("<b>PAYLOAD TLS</b>")
+    lines.append(payload_tls)
+    lines.append("")
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("")
     lines.append(f"Durasi   : {dl}")
     lines.append(f"Dibuat   : {created_fmt}")
     lines.append(f"Berakhir : {exp_fmt}")
-    lines.append("</code>")
     lines.append("")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
     lines.append("<b>      ◤ SANSXML VPN STORE ◢</b>")
     lines.append("<i>❖ Terima kasih telah menggunakan layanan kami ❖</i>")
+    lines.append("</blockquote>")
     return "\n".join(lines)
 
 async def do_create_account(chat, uid, user, username, password, hari, is_trial=False, server_key="sg_1ip"):
@@ -769,7 +766,7 @@ async def do_create_account(chat, uid, user, username, password, hari, is_trial=
     await msg.edit_text(
         acc_caption(username, password, r["exp"], dl_txt, ip_limit,
                     r.get("manual",False), is_trial, server_key),
-        reply_markup=kb_after_acc("buat"), parse_mode="HTML")
+        parse_mode="HTML")
 
 async def do_extend_account(chat, uid, user, username, hari, server_key):
     srv = SERVERS.get(server_key, {})
@@ -812,7 +809,7 @@ async def do_extend_account(chat, uid, user, username, hari, server_key):
     await msg.edit_text(
         acc_caption(username, a["password"], new_exp_str, dl_txt, a.get("limit_ip",1),
                     a.get("manual",False), a.get("is_trial",False), server_key),
-        reply_markup=kb_after_acc("extend"), parse_mode="HTML")
+        parse_mode="HTML")
 
 async def _do_delete_account(uid, uname, user, chat):
     a = get_acc(uname)
@@ -864,7 +861,7 @@ async def cb(u, c):
         except: pass
         return
 
-    # ================= TOPUP SALDO =================
+    # TOPUP
     if d == "isi_saldo":
         c.user_data["saldo_input"] = ""
         try: await q.edit_message_text(saldo_text(uid), reply_markup=kb_saldo(), parse_mode="HTML")
@@ -909,7 +906,6 @@ async def cb(u, c):
                 parse_mode="HTML")
         except: pass
         return
-    # ================= END TOPUP =================
 
     if d == "buat_akun":
         c.user_data.clear(); c.user_data["mode"] = "buat"
@@ -921,15 +917,11 @@ async def cb(u, c):
         try: await q.edit_message_text(pilih_layanan_text(), reply_markup=kb_pilih_layanan(), parse_mode="HTML")
         except: pass
         return
-
-    # ================= PERPANJANG AKUN =================
     if d == "perpanjang_akun":
         c.user_data.clear(); c.user_data["mode"] = "perpanjang"
         try: await q.edit_message_text(pilih_layanan_text(), reply_markup=kb_pilih_layanan(), parse_mode="HTML")
         except: pass
         return
-    # ================= END PERPANJANG =================
-
     if d == "pilih_layanan":
         c.user_data["mode"] = c.user_data.get("mode", "buat")
         try: await q.edit_message_text(pilih_layanan_text(), reply_markup=kb_pilih_layanan(), parse_mode="HTML")
@@ -955,7 +947,6 @@ async def cb(u, c):
         except: pass
         return
 
-    # ================= HANDLE EXTEND SERVER =================
     if d.startswith("extend|"):
         server_key = d.split("|")[1]
         if server_key not in SERVERS:
@@ -964,7 +955,6 @@ async def cb(u, c):
         c.user_data["extend_data"] = {"server_key": server_key}
         await chat.send_message("👤 <b>Masukkan username akun yang ingin diperpanjang :</b>", parse_mode="HTML")
         return
-    # ================= END EXTEND =================
 
     if d.startswith("buat|"):
         server_key = d.split("|")[1]
@@ -1070,7 +1060,7 @@ async def cb(u, c):
             except: pass
         return
 
-    # ================= ADMIN =================
+    # ADMIN
     if d == "admin|menu":
         if not is_owner(uid): return
         try: await q.edit_message_text(f"⚙️ <b>ADMIN PANEL</b>\n\n👥 User: <b>{len(load_json(USERS_FILE,{}))}</b>\n🔑 Akun: <b>{count_accounts()}</b>\n💰 Saldo: <b>{rupiah(sum(load_json(BAL_FILE,{}).values()))}</b>", reply_markup=kb_admin(), parse_mode="HTML")
@@ -1181,7 +1171,6 @@ async def msg(u, c):
     track_user(u.effective_user)
     t = (u.message.text or "").strip()
 
-    # STEP: BUAT AKUN
     step = c.user_data.get("buat_step")
     if step:
         data = c.user_data.get("buat_data",{})
@@ -1222,7 +1211,6 @@ async def msg(u, c):
             await do_create_account(u.effective_chat, uid, u.effective_user, un, pw, hari, server_key=server_key)
             return
 
-    # STEP: PERPANJANG
     estep = c.user_data.get("extend_step")
     if estep:
         data = c.user_data.get("extend_data", {})

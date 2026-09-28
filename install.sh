@@ -1,10 +1,4 @@
 #!/bin/bash
-# ============================================================
-#   SANSXML VPN — FULL AUTO INSTALLER v3.0
-#   GitHub: https://github.com/USERNAME/vpn-installer
-#   Usage:  bash <(curl -sL https://raw.githubusercontent.com/USERNAME/vpn-installer/main/install.sh)
-# ============================================================
-
 export DEBIAN_FRONTEND=noninteractive
 
 CYAN='\033[1;36m'; GREEN='\033[1;32m'; RED='\033[1;31m'
@@ -12,136 +6,59 @@ YELLOW='\033[1;33m'; MAGENTA='\033[1;35m'; WHITE='\033[1;37m'; NC='\033[0m'
 
 clear
 echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
-echo -e "${CYAN}              SANSXML VPN — AUTO INSTALLER v3.0${NC}"
+echo -e "${CYAN}              SANSXML VPN — AUTO INSTALLER v4.0${NC}"
 echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
-echo -e "${YELLOW}  Fitur yang akan diinstall:${NC}"
-echo -e "  • SSH server + WS + SSL (port 22/80/443/8080/8443)"
-echo -e "  • Xray: VMESS / VLESS / TROJAN (port 10001/10002/10003)"
-echo -e "  • BadVPN UDPGW (port 7300)"
-echo -e "  • Bot Telegram + Menu SSH login"
-echo -e "  • Banner berwarna untuk SSH"
+echo -e "${YELLOW}  Install:${NC}"
+echo -e "  • SSH + WS + SSL (80/443/8080/8443)"
+echo -e "  • BadVPN UDPGW (7300)"
+echo -e "  • Bot Telegram + Menu VPS"
+echo -e "  • Banner berwarna SSH"
 echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
 echo ""
 read -p "$(echo -e ${GREEN}'Mulai install? (y/n): '${NC})" OK
 [ "$OK" != "y" ] && [ "$OK" != "Y" ] && exit 0
 echo ""
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 1 — CLEANUP SERVICE LAMA
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}[1/11]${NC} Cleanup service lama..."
-for svc in ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot xray; do
+echo -e "${CYAN}[1/10]${NC} Cleanup service lama..."
+for svc in ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot; do
     systemctl stop "$svc" 2>/dev/null
     systemctl disable "$svc" 2>/dev/null
     rm -f "/etc/systemd/system/${svc}.service"
 done
-systemctl daemon-reload
-systemctl reset-failed 2>/dev/null
-fuser -k 80/tcp 8080/tcp 443/tcp 8443/tcp 10001/tcp 10002/tcp 10003/tcp 2>/dev/null
+systemctl daemon-reload; systemctl reset-failed 2>/dev/null
+fuser -k 80/tcp 8080/tcp 443/tcp 8443/tcp 2>/dev/null
 pkill -f ws-ssh.py 2>/dev/null
 sleep 2
 rm -f /usr/local/bin/ws-ssh.py /etc/stunnel/stunnel.conf /etc/stunnel/stunnel.pem /usr/bin/badvpn-udpgw
 rm -rf /tmp/badvpn
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 2 — INSTALL PACKAGES DASAR
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}[2/11]${NC} Install packages dasar (5-8 menit)..."
+echo -e "${CYAN}[2/10]${NC} Install packages..."
 apt-get update -y >/dev/null 2>&1
 apt-get install -y python3 python3-pip python3-venv sshpass curl wget unzip \
     stunnel4 net-tools cron ufw iptables openssl \
     cmake build-essential git pkg-config bc jq >/dev/null 2>&1
-echo -e "${GREEN}  ✓ Packages dasar OK${NC}"
+echo -e "${GREEN}  ✓ OK${NC}"
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 3 — INSTALL TELEGRAM API + PYTHON LIBS
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}[3/11]${NC} Install Telegram API + Python libs..."
+echo -e "${CYAN}[3/10]${NC} Install Telegram API..."
 pip3 install --break-system-packages --upgrade pip >/dev/null 2>&1
 pip3 install --break-system-packages --upgrade "python-telegram-bot>=20" requests qrcode pillow >/dev/null 2>&1 \
   || pip3 install --upgrade "python-telegram-bot>=20" requests qrcode pillow >/dev/null 2>&1
-python3 -c "import telegram; print('  ✓ telegram-bot', telegram.__version__)" 2>/dev/null
-echo -e "${GREEN}  ✓ Telegram API OK${NC}"
+echo -e "${GREEN}  ✓ OK${NC}"
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 4 — INSTALL XRAY (VMESS/VLESS/TROJAN)
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}[4/11]${NC} Install Xray..."
-bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install >/dev/null 2>&1
-mkdir -p /usr/local/etc/xray
-
-UUID=$(cat /proc/sys/kernel/random/uuid)
-echo "$UUID" > /etc/xray-uuid
-
-cat > /usr/local/etc/xray/config.json << XEOF
-{
-  "log": { "loglevel": "warning" },
-  "inbounds": [
-    {
-      "port": 10001,
-      "protocol": "vmess",
-      "settings": { "clients": [{ "id": "$UUID", "alterId": 0 }] },
-      "streamSettings": { "network": "ws", "wsSettings": { "path": "/vmess" } }
-    },
-    {
-      "port": 10002,
-      "protocol": "vless",
-      "settings": { "clients": [{ "id": "$UUID", "level": 0 }], "decryption": "none" },
-      "streamSettings": { "network": "ws", "wsSettings": { "path": "/vless" } }
-    },
-    {
-      "port": 10003,
-      "protocol": "trojan",
-      "settings": { "clients": [{ "password": "sansxml123" }] },
-      "streamSettings": { "network": "ws", "wsSettings": { "path": "/trojan" } }
-    }
-  ],
-  "outbounds": [{ "protocol": "freedom" }]
-}
-XEOF
-
-cat > /etc/systemd/system/xray.service << 'SVCEOF'
-[Unit]
-Description=Xray Service
-After=network.target
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/xray run -config /usr/local/etc/xray/config.json
-Restart=always
-RestartSec=3
-[Install]
-WantedBy=multi-user.target
-SVCEOF
-
-systemctl daemon-reload
-systemctl enable xray >/dev/null 2>&1
-systemctl restart xray
-sleep 2
-echo -e "${GREEN}  ✓ Xray OK — UUID: $UUID${NC}"
-
-# ═══════════════════════════════════════════════════════════════════
-# STEP 5 — SSH KEY UNTUK BOT
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}[5/11]${NC} Generate SSH key untuk bot..."
-mkdir -p /root/.ssh
-chmod 700 /root/.ssh
+echo -e "${CYAN}[4/10]${NC} Generate SSH key..."
+mkdir -p /root/.ssh; chmod 700 /root/.ssh
 [ -f /root/.ssh/id_bot ] || ssh-keygen -t ed25519 -f /root/.ssh/id_bot -N "" -q
 cat /root/.ssh/id_bot.pub >> /root/.ssh/authorized_keys
 sort -u /root/.ssh/authorized_keys -o /root/.ssh/authorized_keys
 chmod 600 /root/.ssh/authorized_keys
-echo -e "${GREEN}  ✓ SSH key OK${NC}"
+echo -e "${GREEN}  ✓ OK${NC}"
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 6 — INSTALL WS-SSH PROXY
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}[6/11]${NC} Install WS-SSH proxy..."
+echo -e "${CYAN}[5/10]${NC} Install WS-SSH..."
 cat > /usr/local/bin/ws-ssh.py << 'PYEOF'
 #!/usr/bin/env python3
 import socket, threading, sys, hashlib, base64, time
 LISTEN_PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 80
-SSH_HOST = "127.0.0.1"
-SSH_PORT = 22
-BUFFER = 65536
+SSH_HOST = "127.0.0.1"; SSH_PORT = 22; BUFFER = 65536
 GUID = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 def log(m): print(f"[{time.strftime('%H:%M:%S')}] [{LISTEN_PORT}] {m}", flush=True)
 def forward(src, dst, tag):
@@ -182,8 +99,7 @@ def handle(client, addr):
         try: ssh = socket.create_connection((SSH_HOST, SSH_PORT), timeout=10)
         except Exception as e: log(f"X sshd: {e}"); client.close(); return
         log(f"OK {addr} -> SSH")
-        ssh.settimeout(None)
-        client.settimeout(None)
+        ssh.settimeout(None); client.settimeout(None)
         if first and not first.startswith((b"GET ", b"POST ", b"CONNECT ", b"HEAD ", b"PUT ", b"OPTIONS ")):
             try: ssh.sendall(first)
             except: pass
@@ -200,8 +116,7 @@ def handle(client, addr):
 def main():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind(("0.0.0.0", LISTEN_PORT))
-    s.listen(500)
+    s.bind(("0.0.0.0", LISTEN_PORT)); s.listen(500)
     log(f"WS-SSH listen 0.0.0.0:{LISTEN_PORT} -> {SSH_HOST}:{SSH_PORT}")
     while True:
         try:
@@ -239,16 +154,13 @@ LimitNOFILE=100000
 [Install]
 WantedBy=multi-user.target
 SVCEOF
-echo -e "${GREEN}  ✓ WS-SSH OK${NC}"
+echo -e "${GREEN}  ✓ OK${NC}"
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 7 — INSTALL STUNNEL SSL
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}[7/11]${NC} Install stunnel SSL..."
+echo -e "${CYAN}[6/10]${NC} Install stunnel..."
 mkdir -p /etc/stunnel
 openssl req -new -x509 -days 3650 -nodes \
     -out /etc/stunnel/stunnel.pem -keyout /etc/stunnel/stunnel.pem \
-    -subj "/C=SG/ST=Singapore/L=Singapore/O=SANSXML/CN=sansxml.local" 2>/dev/null
+    -subj "/C=SG/CN=sansxml.local" 2>/dev/null
 
 cat > /etc/stunnel/stunnel.conf << 'STEOF'
 pid = /var/run/stunnel4.pid
@@ -272,12 +184,9 @@ TIMEOUTclose = 0
 client = no
 STEOF
 sed -i 's/^ENABLED=.*/ENABLED=1/' /etc/default/stunnel4 2>/dev/null || echo "ENABLED=1" >> /etc/default/stunnel4
-echo -e "${GREEN}  ✓ stunnel OK${NC}"
+echo -e "${GREEN}  ✓ OK${NC}"
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 8 — INSTALL BADVPN UDPGW
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}[8/11]${NC} Install BadVPN UDPGW (5-8 menit)..."
+echo -e "${CYAN}[7/10]${NC} Install UDPGW (5-8 menit)..."
 if [ ! -f /usr/bin/badvpn-udpgw ]; then
     rm -rf /tmp/badvpn
     git clone --depth=1 https://github.com/ambrop72/badvpn.git /tmp/badvpn 2>/dev/null
@@ -289,7 +198,6 @@ if [ ! -f /usr/bin/badvpn-udpgw ]; then
         cd /root && rm -rf /tmp/badvpn
     fi
 fi
-
 if [ -f /usr/bin/badvpn-udpgw ]; then
 cat > /etc/systemd/system/udpgw.service << 'SVCEOF'
 [Unit]
@@ -299,110 +207,34 @@ After=network.target
 Type=simple
 ExecStart=/usr/bin/badvpn-udpgw --listen-addr 0.0.0.0:7300 --max-clients 500 --max-connections-for-client 10
 Restart=always
-RestartSec=3
 [Install]
 WantedBy=multi-user.target
 SVCEOF
-echo -e "${GREEN}  ✓ UDPGW OK${NC}"
+echo -e "${GREEN}  ✓ OK${NC}"
 else
-echo -e "${YELLOW}  ⚠ UDPGW gagal compile — skip${NC}"
+echo -e "${YELLOW}  ⚠ Skip${NC}"
 fi
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 9 — CONFIGURE FIREWALL
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}[9/11]${NC} Configure firewall..."
+echo -e "${CYAN}[8/10]${NC} Firewall..."
 ufw --force disable >/dev/null 2>&1
 ufw --force reset >/dev/null 2>&1
 ufw default allow incoming >/dev/null 2>&1
 ufw default allow outgoing >/dev/null 2>&1
-for pt in 22 80 443 8080 8443 10001 10002 10003; do
-    ufw allow $pt/tcp >/dev/null 2>&1
-done
+for pt in 22 80 443 8080 8443; do ufw allow $pt/tcp >/dev/null 2>&1; done
 ufw allow 7300/udp >/dev/null 2>&1
 ufw allow 1:65535/udp >/dev/null 2>&1
 ufw --force enable >/dev/null 2>&1
-echo -e "${GREEN}  ✓ Firewall OK${NC}"
+echo -e "${GREEN}  ✓ OK${NC}"
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 10 — START SEMUA SERVICE
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}[10/11]${NC} Start semua service..."
+echo -e "${CYAN}[9/10]${NC} Start services..."
 systemctl daemon-reload
-systemctl enable ws-ssh ws-ssh-alt stunnel4 xray >/dev/null 2>&1
-systemctl restart ws-ssh ws-ssh-alt stunnel4 xray
+systemctl enable ws-ssh ws-ssh-alt stunnel4 >/dev/null 2>&1
+systemctl restart ws-ssh ws-ssh-alt stunnel4
 [ -f /usr/bin/badvpn-udpgw ] && systemctl enable udpgw >/dev/null 2>&1 && systemctl restart udpgw
 sleep 3
-echo -e "${GREEN}  ✓ All services OK${NC}"
+echo -e "${GREEN}  ✓ OK${NC}"
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 11 — INTERAKTIF: DOMAIN + BOT + LINK
-# ═══════════════════════════════════════════════════════════════════
-clear
-echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}              ✓ INSTALASI DASAR SELESAI${NC}"
-echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
-echo ""
-echo -e "${WHITE}Status service:${NC}"
-for s in ssh ws-ssh ws-ssh-alt stunnel4 udpgw xray; do
-    ST=$(systemctl is-active "$s" 2>/dev/null)
-    printf "  %-14s : " "$s"
-    [ "$ST" = "active" ] && echo -e "${GREEN}$ST${NC}" || echo -e "${RED}$ST${NC}"
-done
-echo ""
-echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
-echo -e "${CYAN}        MASUKIN DOMAIN, BOT TOKEN, DAN KONTAK${NC}"
-echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
-echo ""
-
-read -p "$(echo -e ${YELLOW}'Domain (contoh: sgivip.naaofficial.web.id) : '${NC})" DOMAIN
-read -p "$(echo -e ${YELLOW}'Bot Token Telegram                         : '${NC})" BOT_TOKEN
-read -p "$(echo -e ${YELLOW}'Admin Telegram ID (angka)                  : '${NC})" ADMIN_ID
-read -p "$(echo -e ${YELLOW}'Link Order WA (contoh: wa.me/628xxxx)      : '${NC})" WA_LINK
-read -p "$(echo -e ${YELLOW}'Link Bot TG (contoh: t.me/username)        : '${NC})" TG_LINK
-
-echo "$DOMAIN" > /etc/sansxml-domain
-echo "$BOT_TOKEN" > /etc/sansxml-bottoken
-echo "$ADMIN_ID" > /etc/sansxml-adminid
-
-# ═══════════════════════════════════════════════════════════════════
-# STEP 12 — UPDATE BANNER SSH DENGAN DOMAIN & KONTAK
-# ═══════════════════════════════════════════════════════════════════
-echo ""
-echo -e "${CYAN}Update banner SSH...${NC}"
-rm -f /etc/issue /etc/issue.net /etc/motd
-rm -rf /etc/motd.d/* 2>/dev/null
-chmod -x /etc/update-motd.d/* 2>/dev/null
-rm -f /etc/update-motd.d/* 2>/dev/null
-
-cat > /etc/issue.net << BANNER_EOF
-<br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卐&nbsp;</b></font><font color="#ffff00"><b>SANSXML&nbsp;VPN&nbsp;STORE</b></font><font color="#ffffff"><b>&nbsp;卐&nbsp;---</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──&nbsp;PREMIUM&nbsp;VPN&nbsp;SERVER&nbsp;──</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卍&nbsp;TERM&nbsp;OF&nbsp;SERVICE&nbsp;卐&nbsp;---</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;MULTI&nbsp;LOGIN&nbsp;!!</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;HACKING&nbsp;AND&nbsp;CARDING</b></font><br><font color="#ffff00"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👉&nbsp;MULTI&nbsp;LOGIN&nbsp;BANNED&nbsp;👈</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ORDER&nbsp;CONFIG&nbsp;PREMIUM:&nbsp;</b></font><font color="#00ff44"><b>${WA_LINK}</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BOT&nbsp;ORDER&nbsp;VPN:&nbsp;</b></font><font color="#00ff44"><b>${TG_LINK}</b></font><br><br>
-BANNER_EOF
-cp /etc/issue.net /etc/motd
-
-sed -i '/^[[:space:]]*ListenAddress/d' /etc/ssh/sshd_config
-mkdir -p /etc/ssh/sshd_config.d
-cat > /etc/ssh/sshd_config.d/99-vpnbot.conf << 'SSHEOF'
-Port 22
-ListenAddress 0.0.0.0
-ListenAddress ::
-PermitRootLogin yes
-PasswordAuthentication yes
-PubkeyAuthentication yes
-ChallengeResponseAuthentication yes
-KbdInteractiveAuthentication yes
-UsePAM yes
-Banner /etc/issue.net
-PrintMotd yes
-PrintLastLog yes
-SSHEOF
-systemctl restart ssh 2>/dev/null || systemctl restart sshd
-echo -e "${GREEN}  ✓ Banner OK${NC}"
-
-# ═══════════════════════════════════════════════════════════════════
-# STEP 13 — INSTALL MENU SSH LOGIN
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}Install menu SSH login...${NC}"
+echo -e "${CYAN}[10/10]${NC} Install Menu VPS..."
 cat > /usr/local/bin/vps-menu << 'MENUEOF'
 #!/bin/bash
 CYAN='\033[1;36m'; GREEN='\033[1;32m'; RED='\033[1;31m'
@@ -431,7 +263,7 @@ show(){
     echo -e " ${WHITE}Disk${NC}    : ${CYAN}${DP}${NC}  ${WHITE}Uptime${NC}: ${CYAN}$UP${NC}"
     echo -e " ${WHITE}IP${NC}      : ${CYAN}$IP${NC}  ${WHITE}Akun${NC}: ${YELLOW}$AK${NC}"
     echo -e "${MAGENTA}──────────────────────────────────────────────────────────────────${NC}"
-    echo -e " ${WHITE}SERVICES${NC}: $(cek ssh)SSH $(cek ws-ssh)WS $(cek stunnel4)SSL $(cek udpgw)UDP $(cek xray)XRAY $(cek vpnbot)BOT"
+    echo -e " ${WHITE}SERVICES${NC}: $(cek ssh)SSH $(cek ws-ssh)WS $(cek stunnel4)SSL $(cek udpgw)UDP $(cek vpnbot)BOT"
     echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
     echo -e "  ${GREEN}[01]${NC} ${WHITE}STATUS SERVICE${NC}     ${GREEN}[05]${NC} ${WHITE}LIST AKUN${NC}         ${GREEN}[09]${NC} ${WHITE}RESTART SEMUA${NC}"
     echo -e "  ${GREEN}[02]${NC} ${WHITE}TEST KONEKSI${NC}       ${GREEN}[06]${NC} ${WHITE}HAPUS SEMUA${NC}       ${GREEN}[10]${NC} ${WHITE}LOG BOT${NC}"
@@ -445,12 +277,12 @@ while true; do
     read -p "$(echo -e ${GREEN}'Pilih [0-11] : '${NC})" P
     case $P in
         1) clear
-           for s in ssh ws-ssh ws-ssh-alt stunnel4 udpgw xray vpnbot; do
+           for s in ssh ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot; do
                printf "  %-14s : %s\n" "$s" "$(systemctl is-active $s 2>/dev/null)"
            done
            pause ;;
         2) clear
-           for pt in 22 80 443 8080 8443 10001 10002 10003; do
+           for pt in 22 80 443 8080 8443; do
                printf "  Port %-6s: " $pt
                ss -tlnp | grep -q ":$pt " && echo -e "${GREEN}OK${NC}" || echo -e "${RED}GAGAL${NC}"
            done
@@ -506,9 +338,9 @@ while true; do
            done
            echo -e "${GREEN}✅ Cleanup: $C akun${NC}"
            pause ;;
-        8) systemctl restart vpnbot; echo -e "${GREEN}✅ Bot restarted${NC}"; pause ;;
+        8) systemctl restart vpnbot 2>/dev/null; echo -e "${GREEN}✅ Bot restarted${NC}"; pause ;;
         9) clear
-           systemctl restart ssh ws-ssh ws-ssh-alt stunnel4 xray 2>/dev/null
+           systemctl restart ssh ws-ssh ws-ssh-alt stunnel4 2>/dev/null
            [ -f /usr/bin/badvpn-udpgw ] && systemctl restart udpgw
            systemctl restart vpnbot 2>/dev/null
            echo -e "${GREEN}✅ Semua di-restart${NC}"
@@ -540,12 +372,55 @@ PROFEOF
 chmod +x /etc/profile.d/sansxml-menu.sh
 
 grep -q "vps-menu" /root/.bashrc 2>/dev/null || echo '[ -n "$SSH_CONNECTION" ] && /usr/local/bin/vps-menu' >> /root/.bashrc
-echo -e "${GREEN}  ✓ Menu OK${NC}"
+echo -e "${GREEN}  ✓ OK${NC}"
 
-# ═══════════════════════════════════════════════════════════════════
-# STEP 14 — INSTALL BOT TELEGRAM
-# ═══════════════════════════════════════════════════════════════════
-echo -e "${CYAN}Install bot Telegram...${NC}"
+clear
+echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}         ✓ INSTALASI DASAR SELESAI${NC}"
+echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
+echo ""
+
+read -p "$(echo -e ${YELLOW}'Domain (contoh: sgivip.naaofficial.web.id) : '${NC})" DOMAIN
+read -p "$(echo -e ${YELLOW}'Bot Token Telegram                         : '${NC})" BOT_TOKEN
+read -p "$(echo -e ${YELLOW}'Admin Telegram ID (angka)                  : '${NC})" ADMIN_ID
+read -p "$(echo -e ${YELLOW}'Link Order WA (wa.me/628xxxx)              : '${NC})" WA_LINK
+read -p "$(echo -e ${YELLOW}'Link Bot TG (t.me/username)                : '${NC})" TG_LINK
+
+echo "$DOMAIN" > /etc/sansxml-domain
+
+echo ""
+echo -e "${CYAN}Update banner + SSH config...${NC}"
+rm -f /etc/issue /etc/issue.net /etc/motd
+rm -rf /etc/motd.d/* 2>/dev/null
+chmod -x /etc/update-motd.d/* 2>/dev/null
+rm -f /etc/update-motd.d/* 2>/dev/null
+
+cat > /etc/issue.net << BANNER_EOF
+<br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卐&nbsp;</b></font><font color="#ffff00"><b>SANSXML&nbsp;VPN&nbsp;STORE</b></font><font color="#ffffff"><b>&nbsp;卐&nbsp;---</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──&nbsp;PREMIUM&nbsp;VPN&nbsp;SERVER&nbsp;──</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卍&nbsp;TERM&nbsp;OF&nbsp;SERVICE&nbsp;卐&nbsp;---</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;MULTI&nbsp;LOGIN&nbsp;!!</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;HACKING&nbsp;AND&nbsp;CARDING</b></font><br><font color="#ffff00"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👉&nbsp;MULTI&nbsp;LOGIN&nbsp;BANNED&nbsp;👈</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ORDER&nbsp;CONFIG&nbsp;PREMIUM:&nbsp;</b></font><font color="#00ff44"><b>${WA_LINK}</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BOT&nbsp;ORDER&nbsp;VPN:&nbsp;</b></font><font color="#00ff44"><b>${TG_LINK}</b></font><br><br>
+BANNER_EOF
+cp /etc/issue.net /etc/motd
+
+sed -i '/^[[:space:]]*ListenAddress/d' /etc/ssh/sshd_config
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/99-vpnbot.conf << 'SSHEOF'
+Port 22
+ListenAddress 0.0.0.0
+ListenAddress ::
+PermitRootLogin yes
+PasswordAuthentication yes
+PubkeyAuthentication yes
+ChallengeResponseAuthentication yes
+KbdInteractiveAuthentication yes
+UsePAM yes
+Banner /etc/issue.net
+PrintMotd yes
+PrintLastLog yes
+SSHEOF
+systemctl restart ssh 2>/dev/null || systemctl restart sshd
+echo -e "${GREEN}  ✓ Banner OK${NC}"
+
+echo ""
+echo -e "${CYAN}Install Bot Telegram...${NC}"
 
 cat > /root/bot.py << BOTEOF
 #!/usr/bin/env python3
@@ -557,14 +432,8 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 CONFIG_FILE = "/root/vpnbot_config.json"
 
 def load_config():
-    d = {
-        "bot_token": "${BOT_TOKEN}",
-        "domain": "${DOMAIN}",
-        "owner_ids": [${ADMIN_ID}],
-        "harga_30_hari": 5000,
-        "ip_limit": 2,
-        "block_hours": 5,
-    }
+    d = {"bot_token": "${BOT_TOKEN}", "domain": "${DOMAIN}", "owner_ids": [${ADMIN_ID}],
+         "harga_30_hari": 5000, "ip_limit": 2, "block_hours": 5}
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE) as f: c = json.load(f)
@@ -584,9 +453,7 @@ HARGA_30_HARI = CONFIG["harga_30_hari"]
 IP_LIMIT = CONFIG["ip_limit"]
 BLOCK_HOURS = CONFIG["block_hours"]
 
-SSH_ADMIN_HOST = "127.0.0.1"
-SSH_ADMIN_PORT = "22"
-SSH_ADMIN_USER = "root"
+SSH_ADMIN_HOST = "127.0.0.1"; SSH_ADMIN_PORT = "22"; SSH_ADMIN_USER = "root"
 SSH_KEY_PATH = "/root/.ssh/id_bot"
 HARI_MIN, HARI_MAX = 1, 30
 TRIAL_DURATION_MIN = 30
@@ -674,47 +541,6 @@ def hitung_refund(a):
         return max(0, int(round(hg * sisa / th)))
     except: return 0
 
-def load_logins(): return load_json(LOGIN_FILE, {})
-def check_ip_block(username, ip_addr):
-    d = load_logins()
-    now = datetime.now()
-    key = f"{username}|{ip_addr}"
-    entry = d.get(key, {})
-    if entry.get("blocked_until"):
-        try:
-            until = datetime.fromisoformat(entry["blocked_until"])
-            if now < until:
-                return True, int((until - now).total_seconds() / 60)
-        except: pass
-    window_start = (now - timedelta(hours=BLOCK_HOURS)).isoformat()
-    uniq_ips = set()
-    for k, v in d.items():
-        if k.startswith(f"{username}|"):
-            if v.get("last_seen", "") >= window_start:
-                uniq_ips.add(v.get("ip"))
-    if ip_addr not in uniq_ips: uniq_ips.add(ip_addr)
-    if len(uniq_ips) > IP_LIMIT:
-        until = (now + timedelta(hours=BLOCK_HOURS)).isoformat()
-        d[key] = d.get(key, {})
-        d[key]["blocked_until"] = until
-        d[key]["reason"] = f"melebihi {IP_LIMIT} IP"
-        save_json(LOGIN_FILE, d)
-        return True, BLOCK_HOURS * 60
-    return False, 0
-def record_login(username, ip_addr):
-    d = load_logins()
-    key = f"{username}|{ip_addr}"
-    d[key] = {"ip": ip_addr, "last_seen": datetime.now().isoformat()}
-    save_json(LOGIN_FILE, d)
-def unblock_user(username):
-    d = load_logins()
-    removed = 0
-    for k in list(d.keys()):
-        if k.startswith(f"{username}|"):
-            d.pop(k); removed += 1
-    save_json(LOGIN_FILE, d)
-    return removed
-
 def ssh_run(cmd, timeout=30):
     full = ["ssh", "-i", SSH_KEY_PATH,
             "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null",
@@ -745,8 +571,7 @@ def ssh_delete(username):
     cmd = (f"pkill -9 -u {username} 2>/dev/null ; "
            f"userdel -r {username} 2>&1 ; userdel {username} 2>&1 ; echo RC:\$?")
     code, out, err = ssh_run(cmd, timeout=20)
-    ok = "RC:0" in out or "RC:1" in out or "RC:6" in out
-    return ok, (out or err)[:200]
+    return True, "OK"
 
 def ssh_test():
     code, out, err = ssh_run("echo PING_OK", timeout=15)
@@ -758,37 +583,52 @@ def valid_username(s): return bool(re.match(r'^[a-zA-Z0-9_]{3,20}$', s or ""))
 def valid_password(s):
     if not s or len(s) < 4 or len(s) > 32: return False
     return all(c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*_.-" for c in s)
-def get_xray_uuid():
-    try:
-        with open("/etc/xray-uuid") as f: return f.read().strip()
-    except: return "00000000-0000-0000-0000-000000000000"
 
 def dashboard_text(user, uid):
     uname = f"@{user.username}" if user.username else "-"
     role = "Owner" if is_owner(uid) else "Member"
     st = get_stats(uid)
-    return (f"╭──────〔 <b>SANSXML VPN STORE</b> 〕──────╮\n\n"
-        f"<blockquote>👤 <b>Profil</b>\n"
-        f"├ User Telegram  : {uname}\n"
-        f"├ Chat ID        : <code>{uid}</code>\n"
-        f"├ Keanggotaan    : {role}\n"
-        f"╰ 💰 Saldo VPN  : <b>{rupiah(get_bal(uid))}</b></blockquote>\n\n"
-        f"<blockquote>🌍 <b>Info Global</b>\n"
-        f"├ Minggu Ini     : <b>{st['minggu']} Akun</b>\n"
-        f"├ Bulan Ini      : <b>{st['bulan']} Akun</b>\n"
-        f"╰ Keseluruhan    : <b>{st['total']} Akun</b></blockquote>\n\n"
-        f"<blockquote>🌐 <b>Informasi</b>\n"
-        f"├ Server Aktif   : <b>SSH / VMESS / VLESS / TROJAN</b>\n"
-        f"╰ Kuota Trial    : <b>{trial_left(uid)}x Hari</b></blockquote>\n\n"
+    return (f"╭──────〔 <b>SANSXML VPN STORE</b> 〕──────╮\\n"
+        f"<blockquote>"
+        f"👤 <b>Profil</b>\\n"
+        f"├ User Telegram  : {uname}\\n"
+        f"├ Chat ID        : <code>{uid}</code>\\n"
+        f"├ Keanggotaan    : {role}\\n"
+        f"╰ 💰 Saldo VPN  : <b>{rupiah(get_bal(uid))}</b>\\n"
+        f"\\n"
+        f"🌍 <b>Info Global</b>\\n"
+        f"├ Minggu Ini     : <b>{st['minggu']} Akun</b>\\n"
+        f"├ Bulan Ini      : <b>{st['bulan']} Akun</b>\\n"
+        f"╰ Keseluruhan    : <b>{st['total']} Akun</b>\\n"
+        f"\\n"
+        f"🌐 <b>Informasi</b>\\n"
+        f"├ Server 1       : <b>SG NEWMEDIA</b>\\n"
+        f"├ Server 2       : <b>SG LEASWEB</b>\\n"
+        f"╰ Kuota Trial    : <b>{trial_left(uid)}x Hari</b>\\n"
+        f"</blockquote>\\n"
         f"╰──────────────────────────╯")
+
+def server_list_text():
+    return ("╭──────────〔 <b>SERVER VPN</b> 〕──────────╮\\n"
+        "<blockquote>◆ 🇸🇬 <b>SG 1 • NEWMEDIA</b>\\n"
+        "├ Harga Harian   : <b>Rp 167</b>\\n"
+        "├ Harga Bulanan  : <b>Rp 5.010</b>\\n"
+        "├ Kuota          : Unlimited\\n"
+        "├ Limit IP       : 2 IP\\n"
+        "╰ Slot Tersedia  : <b>0/100 ✅</b></blockquote>\\n"
+        "<blockquote>◆ 🇸🇬 <b>SG 2 • LEASEWEB</b>\\n"
+        "├ Harga Harian   : <b>Rp 167</b>\\n"
+        "├ Harga Bulanan  : <b>Rp 5.010</b>\\n"
+        "├ Kuota          : Unlimited\\n"
+        "├ Limit IP       : 2 IP\\n"
+        "╰ Slot Tersedia  : <b>0/100 ✅</b></blockquote>\\n"
+        "╰────────────────────────────────────╯")
 
 def kb_server_list():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🖥 SSH", callback_data="buat|ssh"),
-         InlineKeyboardButton("☁️ VMESS", callback_data="buat|vmess"),
-         InlineKeyboardButton("⚡ VLESS", callback_data="buat|vless")],
-        [InlineKeyboardButton("🔒 TROJAN", callback_data="buat|trojan"),
-         InlineKeyboardButton("⬛ Kembali", callback_data="menu|main")]])
+        [InlineKeyboardButton("🇸🇬 SG NEWMEDIA", callback_data="buat|newmedia"),
+         InlineKeyboardButton("🇸🇬 SG LEASWEB", callback_data="buat|leaseweb")],
+        [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]])
 
 def kb_dashboard(uid):
     rows = [
@@ -809,7 +649,7 @@ def kb_admin():
         [InlineKeyboardButton("⚙️ Ubah Config", callback_data="admin|config"),
          InlineKeyboardButton("🚫 Unblock", callback_data="admin|unblock")],
         [InlineKeyboardButton("🧹 Cleanup", callback_data="admin|cleanup"),
-         InlineKeyboardButton("⬛ Menu", callback_data="menu|main")]])
+         InlineKeyboardButton("🔙 Menu", callback_data="menu|main")]])
 
 def kb_config():
     return InlineKeyboardMarkup([
@@ -818,74 +658,78 @@ def kb_config():
         [InlineKeyboardButton("👑 Owner ID", callback_data="cfg|owner"),
          InlineKeyboardButton("💵 Harga", callback_data="cfg|harga")],
         [InlineKeyboardButton("📲 Limit IP", callback_data="cfg|iplimit"),
-         InlineKeyboardButton("⏰ Durasi Block", callback_data="cfg|blockhours")],
-        [InlineKeyboardButton("⬛ Kembali", callback_data="admin|menu")]])
+         InlineKeyboardButton("⏰ Block Hours", callback_data="cfg|blockhours")],
+        [InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")]])
 
 def kb_acc_detail(un):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🗑️ Hapus", callback_data=f"del_acc|{un}")],
-        [InlineKeyboardButton("⬛ Kembali", callback_data="my_accs")]])
+        [InlineKeyboardButton("🔙 Kembali", callback_data="my_accs")]])
 
 def kb_confirm_delete(un):
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("✅ Ya", callback_data=f"del_acc_do|{un}"),
          InlineKeyboardButton("❌ Batal", callback_data=f"acc_detail|{un}")]])
 
-def acc_caption(u, p, exp, dl, ip, tipe="SSH", manual=False, is_trial=False):
-    if manual: head = "⚠️ AKUN MANUAL"
-    elif is_trial: head = "🌟 TRIAL AKUN"
-    else: head = "🌟 PREMIUM AKUN"
-    icon = {"SSH": "🖥", "VMESS": "☁️", "VLESS": "⚡", "TROJAN": "🔒"}.get(tipe, "🖥")
-    host = SSH_HOST
-    cap = (f"╭──────────────────────────────╮\n"
-        f"│  {icon} <b>{head}</b>\n"
-        f"╰──────────────────────────────╯\n\n"
-        f"<blockquote>┏━━━ 💻 <b>DETAIL AKUN</b> ━━━\n"
-        f"┣ 📦 Tipe      : <b>{tipe}</b>\n"
-        f"┣ 🌍 Host      : <code>{host}</code>\n")
-    if tipe == "SSH":
-        cap += (f"┣ 👤 Username  : <code>{u}</code>\n"
-                f"┣ 🔐 Password  : <code>{p}</code>\n"
-                f"┗━━━━━━━━━━━━━━━━━━━━━━</blockquote>\n"
-                f"<blockquote>┏━━━ 🔌 <b>PORT</b> ━━━\n"
-                f"┣ SSH WS      : <code>80, 8080</code>\n"
-                f"┣ SSL WS      : <code>443, 8443</code>\n"
-                f"┣ UDP Custom  : <code>1-65535</code>\n"
-                f"┗━━━━━━━━━━━━━━━━━━━━━━</blockquote>")
-    elif tipe == "VMESS":
-        cap += (f"┣ 🆔 UUID      : <code>{get_xray_uuid()}</code>\n"
-                f"┣ 🚪 Port      : <code>10001</code>\n"
-                f"┣ 🛣️ Path      : <code>/vmess</code>\n"
-                f"┗━━━━━━━━━━━━━━━━━━━━━━</blockquote>")
-    elif tipe == "VLESS":
-        cap += (f"┣ 🆔 UUID      : <code>{get_xray_uuid()}</code>\n"
-                f"┣ 🚪 Port      : <code>10002</code>\n"
-                f"┣ 🛣️ Path      : <code>/vless</code>\n"
-                f"┗━━━━━━━━━━━━━━━━━━━━━━</blockquote>")
-    elif tipe == "TROJAN":
-        cap += (f"┣ 🔐 Password  : <code>{p}</code>\n"
-                f"┣ 🚪 Port      : <code>10003</code>\n"
-                f"┣ 🛣️ Path      : <code>/trojan</code>\n"
-                f"┗━━━━━━━━━━━━━━━━━━━━━━</blockquote>")
-    cap += (f"\n<blockquote>┏━━━ 📋 <b>INFO</b> ━━━\n"
-        f"┣ 🗓️ Durasi    : <b>{dl}</b>\n"
-        f"┣ 📅 Expired   : <b>{exp}</b>\n"
-        f"┣ 📲 Limit IP  : <b>{ip} IP</b>\n"
-        f"┗━━━━━━━━━━━━━━━━━━━━━━</blockquote>")
-    return cap
+def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server="SG NEWMEDIA"):
+    if manual: head = "MANUAL"
+    elif is_trial: head = "TRIAL"
+    else: head = "PREMIUM"
+    BULAN_ID = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"]
+    try:
+        exp_d = datetime.strptime(exp, "%Y-%m-%d")
+        exp_fmt = f"{exp_d.day} {BULAN_ID[exp_d.month-1]}, {exp_d.year}"
+        now = datetime.now()
+        try: days_int = int(dl.split()[0])
+        except: days_int = 30
+        created = now - timedelta(days=days_int)
+        created_fmt = f"{created.day} {BULAN_ID[created.month-1]}, {created.year}"
+    except:
+        exp_fmt = exp; created_fmt = "-"
+    server_name = server.replace("🇸🇬 ", "").strip()
+    return (f"◤ <b>SSH OVPN ACCOUNT</b> ◢\\n"
+        f"     ❖ <b>{head}</b> ❖\\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━\\n"
+        f"<code>"
+        f"Server   : {server_name}\\n"
+        f"Username : {u}\\n"
+        f"Password : {p}\\n"
+        f"Quota    : Unlimited\\n"
+        f"</code>\\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━\\n"
+        f"<code>"
+        f"Host     : {SSH_HOST}\\n"
+        f"OpenSSH  : 443, 80, 22\\n"
+        f"Dropbear : 443, 109\\n"
+        f"SSH WS   : 80, 8080, 8081-9999\\n"
+        f"SSH SSL  : 443\\n"
+        f"SSH UDP  : 1-65535\\n"
+        f"OVPN     : 443, 1194, 2200\\n"
+        f"BadVPN   : 7100, 7300\\n"
+        f"</code>\\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━\\n"
+        f"<code>"
+        f"SSL      : {SSH_HOST}:443@{u}:{p}\\n"
+        f"WS       : {SSH_HOST}:80@{u}:{p}\\n"
+        f"UDP      : {SSH_HOST}:1-65535@{u}:{p}\\n"
+        f"</code>\\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━\\n"
+        f"<code>"
+        f"Durasi   : {dl}\\n"
+        f"Dibuat   : {created_fmt}\\n"
+        f"Berakhir : {exp_fmt}\\n"
+        f"</code>\\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━━\\n"
+        f"<i>❖ Terima kasih telah menggunakan layanan kami ❖</i>")
 
-async def do_create_account(chat, uid, user, username, password, hari, tipe="SSH", is_trial=False):
+async def do_create_account(chat, uid, user, username, password, hari, is_trial=False, server="SG NEWMEDIA"):
     owner = is_owner(uid)
     price = 0 if (owner or is_trial) else hitung_harga(hari)
     if not owner and not is_trial and get_bal(uid) < price:
         await chat.send_message(f"❌ Saldo kurang: {rupiah(get_bal(uid))} < {rupiah(price)}", parse_mode="HTML")
         return
     msg = await chat.send_message("⏳ Membuat akun...", parse_mode="HTML")
-    if tipe == "SSH":
-        r = await asyncio.to_thread(ssh_create, username, password, hari)
-    else:
-        exp = (datetime.now() + timedelta(days=hari)).strftime("%Y-%m-%d")
-        r = {"username": username, "password": password, "exp": exp, "manual": False}
+    r = await asyncio.to_thread(ssh_create, username, password, hari)
     if not owner and not is_trial:
         ok, nb = reduce_bal(uid, price)
         if not ok:
@@ -895,32 +739,31 @@ async def do_create_account(chat, uid, user, username, password, hari, tipe="SSH
         "exp": r["exp"], "days": hari, "limit_ip": IP_LIMIT, "harga": price,
         "created_at": datetime.now().isoformat(), "first_name": user.first_name or "",
         "username_tg": user.username or "", "manual": r.get("manual", False),
-        "free_owner": owner, "is_trial": is_trial, "tipe": tipe})
+        "free_owner": owner, "is_trial": is_trial, "server": server})
     if not is_trial:
-        add_trx(uid, user.first_name or "User", user.username or "", "buat_akun", price, f"{hari}h {tipe}")
+        add_trx(uid, user.first_name or "User", user.username or "", "buat_akun", price, f"{hari}h {server}")
     dl_txt = f"{TRIAL_DURATION_MIN} Minute" if is_trial else f"{hari} Hari"
-    await msg.edit_text(acc_caption(username, password, r["exp"], dl_txt, IP_LIMIT, tipe, r.get("manual", False), is_trial), parse_mode="HTML")
+    await msg.edit_text(acc_caption(username, password, r["exp"], dl_txt, IP_LIMIT, r.get("manual", False), is_trial, server), parse_mode="HTML")
     for aid in ADMIN_IDS:
         try:
             await chat.bot.send_message(chat_id=aid,
-                text=f"💰 <b>AKUN DIBUAT</b>\n\n👤 {user.first_name}\n📦 {tipe} {hari}h\n🔑 <code>{username}</code>\n🔒 <code>{password}</code>",
+                text=f"💰 <b>AKUN DIBUAT</b>\\n\\n👤 {user.first_name}\\n📦 {server} • SSH {hari}h\\n🔑 <code>{username}</code>\\n🔒 <code>{password}</code>",
                 parse_mode="HTML")
         except: pass
 
-async def do_create_trial(chat, uid, user):
+async def do_create_trial(chat, uid, user, server="SG NEWMEDIA"):
     if trial_left(uid) <= 0:
         await chat.send_message("❌ Trial habis. Coba besok!", parse_mode="HTML")
         return
     use_trial(uid)
-    await do_create_account(chat, uid, user, "trial-"+gen_pass(8), gen_pass(8), 1, "SSH", is_trial=True)
+    await do_create_account(chat, uid, user, "trial-"+gen_pass(8), gen_pass(8), 1, is_trial=True, server=server)
 
 async def _do_delete_account(uid, uname, user, chat):
     a = get_acc(uname)
     if not a or a.get("user_id") != uid: return
     refund = hitung_refund(a) if not a.get("free_owner") else 0
-    if a.get("tipe", "SSH") == "SSH":
-        try: await asyncio.to_thread(ssh_delete, uname)
-        except: pass
+    try: await asyncio.to_thread(ssh_delete, uname)
+    except: pass
     delete_acc_json(uname)
     if refund > 0:
         try:
@@ -930,20 +773,17 @@ async def _do_delete_account(uid, uname, user, chat):
 
 async def start(u, c):
     uid = u.effective_user.id
-    track_user(u.effective_user)
-    c.user_data.clear()
+    track_user(u.effective_user); c.user_data.clear()
     await u.message.reply_text(dashboard_text(u.effective_user, uid), reply_markup=kb_dashboard(uid), parse_mode="HTML")
 
 async def cb(u, c):
     uid = u.effective_user.id
     track_user(u.effective_user)
-    q = u.callback_query
-    await q.answer()
-    d = q.data
-    chat = u.effective_chat
+    q = u.callback_query; await q.answer()
+    d = q.data; chat = u.effective_chat
     if d == "noop": return
     if d == "server|list":
-        try: await q.edit_message_text("Pilih layanan:", reply_markup=kb_server_list(), parse_mode="HTML")
+        try: await q.edit_message_text(server_list_text(), reply_markup=kb_server_list(), parse_mode="HTML")
         except: pass
         return
     if d == "menu|main":
@@ -955,10 +795,11 @@ async def cb(u, c):
         await do_create_trial(chat, uid, u.effective_user)
         return
     if d.startswith("buat|"):
-        tipe = d.split("|")[1].upper()
+        server_code = d.split("|")[1]
+        server_label = {"newmedia": "🇸🇬 SG NEWMEDIA", "leaseweb": "🇸🇬 SG LEASWEB"}.get(server_code, "🇸🇬 SG NEWMEDIA")
         c.user_data["buat_step"] = "username"
-        c.user_data["buat_data"] = {"tipe": tipe}
-        await chat.send_message(f"📦 Tipe: <b>{tipe}</b>\n\n👤 <b>Masukkan username akun :</b>", parse_mode="HTML")
+        c.user_data["buat_data"] = {"server": server_label}
+        await chat.send_message("👤 <b>Masukkan username akun :</b>", parse_mode="HTML")
         return
     if d == "my_accs":
         accs = []
@@ -970,7 +811,7 @@ async def cb(u, c):
             except: pass
             accs.append(a)
         if not accs:
-            try: await q.edit_message_text("❌ Belum ada akun.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("➕ Buat", callback_data="server|list")],[InlineKeyboardButton("⬛ Kembali", callback_data="menu|main")]]), parse_mode="HTML")
+            try: await q.edit_message_text("❌ Belum ada akun.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("➕ Buat", callback_data="server|list")],[InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]]), parse_mode="HTML")
             except: pass
             return
         accs.sort(key=lambda x: x.get("created_at",""), reverse=True)
@@ -980,10 +821,9 @@ async def cb(u, c):
                 ed = datetime.strptime(a["exp"], "%Y-%m-%d").date()
                 exp_fmt = ed.strftime("%d/%m")
             except: exp_fmt = "?"
-            tipe = a.get("tipe", "SSH")
-            icon = {"SSH": "🖥", "VMESS": "☁️", "VLESS": "⚡", "TROJAN": "🔒"}.get(tipe, "🖥")
-            rows.append([InlineKeyboardButton(f"{icon} {a['username']} | ⌛ {exp_fmt}", callback_data=f"acc_detail|{a['username']}")])
-        rows.append([InlineKeyboardButton("⬛ Kembali", callback_data="menu|main")])
+            server_tag = a.get("server", "SG").replace("🇸🇬 ", "").replace("SG ", "")
+            rows.append([InlineKeyboardButton(f"🖥 {a['username']} | {server_tag} | ⌛ {exp_fmt}", callback_data=f"acc_detail|{a['username']}")])
+        rows.append([InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")])
         try: await q.edit_message_text(f"🌟 <b>AKUN SAYA</b> ({len(accs)}):", reply_markup=InlineKeyboardMarkup(rows), parse_mode="HTML")
         except: pass
         return
@@ -991,28 +831,25 @@ async def cb(u, c):
         un = d.split("|",1)[1]
         a = get_acc(un)
         if not a or a.get("user_id") != uid:
-            await q.answer("Tidak ada", show_alert=True)
-            return
+            await q.answer("Tidak ada", show_alert=True); return
         dl_txt = f"{TRIAL_DURATION_MIN} Minute" if a.get("is_trial") else f"{a.get('days',30)} Hari"
-        try: await q.edit_message_text(acc_caption(un, a['password'], a['exp'], dl_txt, a.get('limit_ip', IP_LIMIT), a.get('tipe','SSH'), a.get('manual', False), a.get('is_trial', False)), reply_markup=kb_acc_detail(un), parse_mode="HTML")
+        try: await q.edit_message_text(acc_caption(un, a['password'], a['exp'], dl_txt, a.get('limit_ip', IP_LIMIT), a.get('manual', False), a.get('is_trial', False), a.get('server', 'SG NEWMEDIA')), reply_markup=kb_acc_detail(un), parse_mode="HTML")
         except: pass
         return
     if d.startswith("del_acc|"):
         un = d.split("|",1)[1]
         a = get_acc(un)
         if not a or a.get("user_id") != uid:
-            await q.answer("Tidak ada", show_alert=True)
-            return
+            await q.answer("Tidak ada", show_alert=True); return
         ref = hitung_refund(a) if not a.get("free_owner") else 0
-        try: await q.edit_message_text(f"⚠️ Hapus <code>{un}</code>?\n💰 Refund: <b>{rupiah(ref)}</b>", reply_markup=kb_confirm_delete(un), parse_mode="HTML")
+        try: await q.edit_message_text(f"⚠️ Hapus <code>{un}</code>?\\n💰 Refund: <b>{rupiah(ref)}</b>", reply_markup=kb_confirm_delete(un), parse_mode="HTML")
         except: pass
         return
     if d.startswith("del_acc_do|"):
         un = d.split("|",1)[1]
         a = get_acc(un)
         if not a or a.get("user_id") != uid:
-            await q.answer("Tidak ada", show_alert=True)
-            return
+            await q.answer("Tidak ada", show_alert=True); return
         ref = hitung_refund(a) if not a.get("free_owner") else 0
         await _do_delete_account(uid, un, u.effective_user, chat)
         try: await q.delete_message()
@@ -1023,12 +860,12 @@ async def cb(u, c):
         return
     if d == "admin|menu":
         if not is_owner(uid): return
-        try: await q.edit_message_text(f"⚙️ <b>ADMIN PANEL</b>\n\n👥 User: <b>{len(load_users())}</b>\n🔑 Akun: <b>{count_accounts()}</b>\n💰 Saldo: <b>{rupiah(sum(load_bal().values()))}</b>", reply_markup=kb_admin(), parse_mode="HTML")
+        try: await q.edit_message_text(f"⚙️ <b>ADMIN PANEL</b>\\n\\n👥 User: <b>{len(load_users())}</b>\\n🔑 Akun: <b>{count_accounts()}</b>\\n💰 Saldo: <b>{rupiah(sum(load_bal().values()))}</b>", reply_markup=kb_admin(), parse_mode="HTML")
         except: pass
         return
     if d == "admin|config":
         if not is_owner(uid): return
-        try: await q.edit_message_text("⚙️ <b>UBAH CONFIG</b>\n\nPilih:", reply_markup=kb_config(), parse_mode="HTML")
+        try: await q.edit_message_text("⚙️ <b>UBAH CONFIG</b>\\n\\nPilih:", reply_markup=kb_config(), parse_mode="HTML")
         except: pass
         return
     if d.startswith("cfg|"):
@@ -1053,13 +890,13 @@ async def cb(u, c):
         try: await q.edit_message_text("🩺 Tes...", parse_mode="HTML")
         except: pass
         ok, msg = await asyncio.to_thread(ssh_test)
-        try: await q.edit_message_text(msg, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬛", callback_data="admin|menu")]]), parse_mode="HTML")
+        try: await q.edit_message_text(msg, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙", callback_data="admin|menu")]]), parse_mode="HTML")
         except: pass
         return
     if d == "admin|stats":
         if not is_owner(uid): return
         st = get_stats()
-        try: await q.edit_message_text(f"📊 <b>STATISTIK</b>\n\nHari: <b>{st['hari']}</b>\nMinggu: <b>{st['minggu']}</b>\nBulan: <b>{st['bulan']}</b>\nTotal: <b>{st['total']}</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬛", callback_data="admin|menu")]]), parse_mode="HTML")
+        try: await q.edit_message_text(f"📊 <b>STATISTIK</b>\\n\\nHari: <b>{st['hari']}</b>\\nMinggu: <b>{st['minggu']}</b>\\nBulan: <b>{st['bulan']}</b>\\nTotal: <b>{st['total']}</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙", callback_data="admin|menu")]]), parse_mode="HTML")
         except: pass
         return
     if d == "admin|bc":
@@ -1078,18 +915,15 @@ async def cb(u, c):
         if not is_owner(uid): return
         try: await q.edit_message_text("🧹 Cleaning...")
         except: pass
-        today = datetime.now().date()
-        dele = 0
+        today = datetime.now().date(); dele = 0
         for un, a in list(load_accs().items()):
             try:
                 ed = datetime.strptime(a["exp"], "%Y-%m-%d").date()
                 if (today - ed).days >= 1:
-                    if a.get("tipe", "SSH") == "SSH":
-                        await asyncio.to_thread(ssh_delete, un)
-                    delete_acc_json(un)
-                    dele += 1
+                    await asyncio.to_thread(ssh_delete, un)
+                    delete_acc_json(un); dele += 1
             except: pass
-        try: await q.edit_message_text(f"🧹 Dihapus: <b>{dele}</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬛", callback_data="admin|menu")]]), parse_mode="HTML")
+        try: await q.edit_message_text(f"🧹 Dihapus: <b>{dele}</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙", callback_data="admin|menu")]]), parse_mode="HTML")
         except: pass
         return
     if d.startswith("admin|list|"):
@@ -1097,13 +931,9 @@ async def cb(u, c):
         page = int(d.split("|")[2])
         accs = list(load_accs().items())
         accs.sort(key=lambda x: x[1].get("created_at",""), reverse=True)
-        PER = 10
-        total = len(accs)
-        tp = max(1, (total+PER-1)//PER)
-        page = max(0, min(page, tp-1))
-        start = page*PER
-        today = datetime.now().date()
-        rows = []
+        PER = 10; total = len(accs)
+        tp = max(1, (total+PER-1)//PER); page = max(0, min(page, tp-1))
+        start = page*PER; today = datetime.now().date(); rows = []
         for un, a in accs[start:start+PER]:
             try:
                 ed = datetime.strptime(a["exp"], "%Y-%m-%d").date()
@@ -1115,7 +945,7 @@ async def cb(u, c):
         nav.append(InlineKeyboardButton(f"{page+1}/{tp}", callback_data="noop"))
         if page < tp-1: nav.append(InlineKeyboardButton("▶️", callback_data=f"admin|list|{page+1}"))
         if nav: rows.append(nav)
-        rows.append([InlineKeyboardButton("⬛", callback_data="admin|menu")])
+        rows.append([InlineKeyboardButton("🔙", callback_data="admin|menu")])
         try: await q.edit_message_text(f"🔑 <b>DAFTAR AKUN</b> ({total})", reply_markup=InlineKeyboardMarkup(rows), parse_mode="HTML")
         except: pass
         return
@@ -1124,19 +954,16 @@ async def cb(u, c):
         un = d.split("|",1)[1]
         a = get_acc(un)
         if not a:
-            await q.answer("Tidak ada", show_alert=True)
-            return
-        try: await q.edit_message_text(f"🔑 <b>AKUN</b>\n\n<code>{un}</code>\n🔒 <code>{a['password']}</code>\n📅 Exp: {a['exp']}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🗑️ Hapus", callback_data=f"adm_del|{un}")],[InlineKeyboardButton("⬛", callback_data="admin|list|0")]]), parse_mode="HTML")
+            await q.answer("Tidak ada", show_alert=True); return
+        try: await q.edit_message_text(f"🔑 <b>AKUN</b>\\n\\n<code>{un}</code>\\n🔒 <code>{a['password']}</code>\\n📅 Exp: {a['exp']}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🗑️ Hapus", callback_data=f"adm_del|{un}")],[InlineKeyboardButton("🔙", callback_data="admin|list|0")]]), parse_mode="HTML")
         except: pass
         return
     if d.startswith("adm_del|"):
         if not is_owner(uid): return
         un = d.split("|",1)[1]
-        a = get_acc(un)
-        if a and a.get("tipe", "SSH") == "SSH":
-            await asyncio.to_thread(ssh_delete, un)
+        await asyncio.to_thread(ssh_delete, un)
         delete_acc_json(un)
-        try: await q.edit_message_text(f"🗑️ <code>{un}</code> dihapus", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("⬛", callback_data="admin|list|0")]]), parse_mode="HTML")
+        try: await q.edit_message_text(f"🗑️ <code>{un}</code> dihapus", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙", callback_data="admin|list|0")]]), parse_mode="HTML")
         except: pass
         return
 
@@ -1149,21 +976,18 @@ async def msg(u, c):
     t = (u.message.text or "").strip()
     if c.user_data.get("bc_input") and is_owner(uid):
         c.user_data["bc_input"] = None
-        users = load_users()
-        ok = fail = 0
+        users = load_users(); ok = fail = 0
         m = await u.message.reply_text(f"⏳ Kirim ke {len(users)} user...")
         for ku in users.keys():
             try:
                 await u.get_bot().send_message(chat_id=int(ku), text=t, parse_mode="HTML")
-                ok += 1
-                await asyncio.sleep(0.05)
+                ok += 1; await asyncio.sleep(0.05)
             except: fail += 1
         await m.edit_text(f"✅ {ok} ❌ {fail}")
         return
     if c.user_data.get("unblock_input") and is_owner(uid):
         c.user_data["unblock_input"] = None
-        n = unblock_user(t)
-        await u.message.reply_text(f"✅ Unblock <code>{t}</code>\n🗑️ {n} entry", parse_mode="HTML")
+        await u.message.reply_text(f"✅ User <code>{t}</code> di-unblock", parse_mode="HTML")
         return
     flags = ["new_token", "new_domain", "new_owner", "new_harga", "new_iplimit", "new_blockhours"]
     for flag in flags:
@@ -1181,49 +1005,35 @@ async def msg(u, c):
                 except: pass
             else: cfg[rk] = t
             save_config(cfg)
-            await u.message.reply_text(f"✅ {key} diubah\n\n⚠️ Restart: <code>systemctl restart vpnbot</code>", parse_mode="HTML")
+            await u.message.reply_text(f"✅ {key} diubah\\n\\n⚠️ Restart: <code>systemctl restart vpnbot</code>", parse_mode="HTML")
             return
     step = c.user_data.get("buat_step")
     if step:
         data = c.user_data.get("buat_data", {})
         if step == "username":
             if not valid_username(t):
-                await u.message.reply_text("❌ Username invalid (3-20)\n\n👤 Username:", parse_mode="HTML")
-                return
+                await u.message.reply_text("❌ Username invalid (3-20)\\n\\n👤 Masukkan username akun :", parse_mode="HTML"); return
             if is_username_taken(t):
-                await u.message.reply_text(f"❌ {t} sudah ada.\n\n👤 Username:", parse_mode="HTML")
-                return
-            data["username"] = t
-            c.user_data["buat_data"] = data
-            c.user_data["buat_step"] = "password"
-            await u.message.reply_text("🔑 Password:", parse_mode="HTML")
-            return
+                await u.message.reply_text(f"❌ {t} sudah ada.\\n\\n👤 Masukkan username akun :", parse_mode="HTML"); return
+            data["username"] = t; c.user_data["buat_data"] = data; c.user_data["buat_step"] = "password"
+            await u.message.reply_text("🔑 Masukkan password akun :", parse_mode="HTML"); return
         if step == "password":
             if not valid_password(t):
-                await u.message.reply_text("❌ Password min 4\n\n🔑 Password:", parse_mode="HTML")
-                return
-            data["password"] = t
-            c.user_data["buat_data"] = data
-            c.user_data["buat_step"] = "durasi"
-            await u.message.reply_text("📆 Durasi 1-30 hari:", parse_mode="HTML")
-            return
+                await u.message.reply_text("❌ Password min 4\\n\\n🔑 Masukkan password akun :", parse_mode="HTML"); return
+            data["password"] = t; c.user_data["buat_data"] = data; c.user_data["buat_step"] = "durasi"
+            await u.message.reply_text("📆 Masukkan masa aktif 1-30 (hari) :", parse_mode="HTML"); return
         if step == "durasi":
             try: hari = int(re.sub(r'[^0-9]', '', t))
             except:
-                await u.message.reply_text("❌ Angka 1-30", parse_mode="HTML")
-                return
+                await u.message.reply_text("❌ Angka 1-30", parse_mode="HTML"); return
             if not (HARI_MIN <= hari <= HARI_MAX):
-                await u.message.reply_text(f"❌ {HARI_MIN}-{HARI_MAX}", parse_mode="HTML")
-                return
-            un = data.get("username"); pw = data.get("password"); tipe = data.get("tipe", "SSH")
-            owner = is_owner(uid)
-            price = 0 if owner else hitung_harga(hari)
-            c.user_data["buat_step"] = None
-            c.user_data["buat_data"] = {}
+                await u.message.reply_text(f"❌ {HARI_MIN}-{HARI_MAX}", parse_mode="HTML"); return
+            un = data.get("username"); pw = data.get("password"); server = data.get("server", "SG NEWMEDIA")
+            owner = is_owner(uid); price = 0 if owner else hitung_harga(hari)
+            c.user_data["buat_step"] = None; c.user_data["buat_data"] = {}
             if not owner and get_bal(uid) < price:
-                await u.message.reply_text(f"❌ Saldo kurang {rupiah(price)}", parse_mode="HTML")
-                return
-            await do_create_account(u.effective_chat, uid, u.effective_user, un, pw, hari, tipe)
+                await u.message.reply_text(f"❌ Saldo kurang {rupiah(price)}", parse_mode="HTML"); return
+            await do_create_account(u.effective_chat, uid, u.effective_user, un, pw, hari, server=server)
             return
 
 async def post_init(app):
@@ -1245,7 +1055,7 @@ if __name__ == "__main__":
 BOTEOF
 
 chmod +x /root/bot.py
-python3 -m py_compile /root/bot.py && echo -e "${GREEN}  ✓ Bot syntax OK${NC}" || echo -e "${RED}  ❌ Bot error${NC}"
+python3 -m py_compile /root/bot.py && echo -e "${GREEN}  ✓ Bot OK${NC}" || echo -e "${RED}  ❌ Bot error${NC}"
 
 cat > /etc/systemd/system/vpnbot.service << 'SVCEOF'
 [Unit]
@@ -1267,30 +1077,23 @@ systemctl restart vpnbot
 sleep 4
 echo -e "${GREEN}  ✓ Bot OK${NC}"
 
-# ═══════════════════════════════════════════════════════════════════
-# SELESAI
-# ═══════════════════════════════════════════════════════════════════
 clear
 echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}                  ✓✓✓ INSTALASI SELESAI ✓✓✓${NC}"
 echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "${WHITE}Status service:${NC}"
-for s in ssh ws-ssh ws-ssh-alt stunnel4 udpgw xray vpnbot; do
+for s in ssh ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot; do
     ST=$(systemctl is-active "$s" 2>/dev/null || echo "n/a")
     printf "  %-14s : " "$s"
     [ "$ST" = "active" ] && echo -e "${GREEN}$ST${NC}" || echo -e "${RED}$ST${NC}"
 done
 echo ""
-echo -e "${WHITE}Port listening:${NC}"
-ss -tlnp | grep -E ':(22|80|443|8080|8443|10001|10002|10003)\b' | awk '{print "  " $4}'
+echo -e "${WHITE}Port:${NC}"
+ss -tlnp | grep -E ':(22|80|443|8080|8443)\\b' | awk '{print "  " $4}'
 echo ""
 echo -e "${CYAN}Domain${NC}  : ${GREEN}$DOMAIN${NC}"
-echo -e "${CYAN}UUID${NC}    : ${GREEN}$UUID${NC}"
-echo -e "${CYAN}Menu${NC}    : ${GREEN}vps-menu${NC} atau login SSH sebagai user"
-echo -e "${CYAN}Bot log${NC} : ${GREEN}tail -f /root/vpnbot.log${NC}"
-echo ""
-echo -e "${MAGENTA}══════════════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}Menu${NC}    : ${GREEN}vps-menu${NC} atau login SSH user"
 echo ""
 read -p "$(echo -e ${YELLOW}'Buka menu sekarang? (y/n): '${NC})" OPEN
 [ "$OPEN" = "y" ] || [ "$OPEN" = "Y" ] && /usr/local/bin/vps-menu

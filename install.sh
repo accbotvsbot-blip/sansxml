@@ -236,7 +236,7 @@ cat > /root/vpnbot_config.json << CFGEOF
       "name": "🇸🇬 DIGITALOCEAN • PRIME SG-01",
       "city": "Singapore",
       "isp": "DigitalOcean LLC",
-      "ssh_ovpn": "SG NEWMEDIA",
+      "ssh_ovpn": "DIGITALOCEAN • PRIME SG-01",
       "domain": "${DOMAIN}",
       "price_day": 167,
       "price_month": 5000,
@@ -247,7 +247,7 @@ cat > /root/vpnbot_config.json << CFGEOF
       "name": "🇸🇬 DIGITALOCEAN • PRIME SG-01",
       "city": "Singapore",
       "isp": "DigitalOcean LLC",
-      "ssh_ovpn": "SG NEWMEDIA",
+      "ssh_ovpn": "DIGITALOCEAN • PRIME SG-01",
       "domain": "${DOMAIN}",
       "price_day": 250,
       "price_month": 7500,
@@ -266,7 +266,7 @@ chmod -x /etc/update-motd.d/* 2>/dev/null
 rm -f /etc/update-motd.d/* 2>/dev/null
 
 cat > /etc/issue.net << 'BEOF'
-<br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卐&nbsp;</b></font><font color="#ffff00"><b>SANSXML&nbsp;VPN&nbsp;STORE</b></font><font color="#ffffff"><b>&nbsp;卐&nbsp;---</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──&nbsp;PREMIUM&nbsp;VPN&nbsp;SERVER&nbsp;──</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卍&nbsp;TERM&nbsp;OF&nbsp;SERVICE&nbsp;卐&nbsp;---</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;MULTI&nbsp;LOGIN&nbsp;!!</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;HACKING&nbsp;AND&nbsp;CARDING</b></font><br><font color="#ffff00"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👉&nbsp;MULTI&nbsp;LOGIN&nbsp;BANNED&nbsp;👈</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ORDER&nbsp;CONFIG&nbsp;PREMIUM:&nbsp;</b></font><font color="#00ff44"><b>wa.me/6289527419748</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BOT&nbsp;ORDER&nbsp;VPN:&nbsp;</b></font><font color="#00ff44"><b>t.me/unokwn</b></font><br><br>
+<br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卐&nbsp;</b></font><font color="#ffff00"><b>SANSXML&nbsp;VPN&nbsp;STORE</b></font><font color="#ffffff"><b>&nbsp;卐&nbsp;---</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──&nbsp;PREMIUM&nbsp;VPN&nbsp;SERVER&nbsp;──</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卍&nbsp;TERM&nbsp;OF&nbsp;SERVICE&nbsp;卐&nbsp;---</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;MULTI&nbsp;LOGIN&nbsp;!!</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;HACKING&nbsp;AND&nbsp;CARDING</b></font><br><font color="#ffff00"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👉&nbsp;MULTI&nbsp;LOGIN&nbsp;BANNED&nbsp;👈</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ORDER&nbsp;CONFIG&nbsp;PREMIUM:&nbsp;</b></font><font color="#00ff44"><b>wa.me/6289527419748</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BOT&nbsp;ORDER&nbsp;VPN:&nbsp;</b></font><font color="#00ff44"><b>t.me/unokwn</b></font><br><br>
 BEOF
 cp /etc/issue.net /etc/motd
 
@@ -458,7 +458,6 @@ def ssh_create(username, password, days):
     ok = "DONE:0" in out
     return {"ok":True,"username":username,"password":password,"exp":exp,"manual":not ok}
 def ssh_extend(username, new_exp):
-    """Perpanjang masa aktif user di sistem."""
     cmd = f"chage -E '{new_exp}' {username} 2>&1 ; echo DONE:$?"
     code, out, err = ssh_run(cmd)
     return "DONE:0" in out
@@ -560,19 +559,30 @@ def kb_pilih_layanan():
 
 def kb_ssh_server():
     rows = []
-    for key, srv in SERVERS.items():
-        rows.append([InlineKeyboardButton(
-            f"🇸🇬 {srv['ip_limit']} IP • {rupiah(srv['price_day'])}/hari",
-            callback_data=f"buat|{key}")])
+    keys = list(SERVERS.keys())
+    for i in range(0, len(keys), 2):
+        row = []
+        for j in range(i, min(i+2, len(keys))):
+            k = keys[j]
+            srv = SERVERS[k]
+            # Label: nama server + IP count
+            label = f"{srv['name']} • {srv['ip_limit']} IP"
+            row.append(InlineKeyboardButton(label, callback_data=f"buat|{k}"))
+        rows.append(row)
     rows.append([InlineKeyboardButton("🔙 KEMBALI", callback_data="pilih_layanan")])
     return InlineKeyboardMarkup(rows)
 
 def kb_ssh_server_extend():
     rows = []
-    for key, srv in SERVERS.items():
-        rows.append([InlineKeyboardButton(
-            f"🇸🇬 {srv['ip_limit']} IP • {rupiah(srv['price_day'])}/hari",
-            callback_data=f"extend|{key}")])
+    keys = list(SERVERS.keys())
+    for i in range(0, len(keys), 2):
+        row = []
+        for j in range(i, min(i+2, len(keys))):
+            k = keys[j]
+            srv = SERVERS[k]
+            label = f"{srv['name']} • {srv['ip_limit']} IP"
+            row.append(InlineKeyboardButton(label, callback_data=f"extend|{k}"))
+        rows.append(row)
     rows.append([InlineKeyboardButton("🔙 KEMBALI", callback_data="menu|main")])
     return InlineKeyboardMarkup(rows)
 
@@ -589,7 +599,6 @@ def kb_dashboard(uid):
     if is_owner(uid): rows.append([InlineKeyboardButton("⚙️ Admin Panel", callback_data="admin|menu")])
     return InlineKeyboardMarkup(rows)
 
-# ================== FITUR TOPUP SALDO ==================
 def saldo_text(uid, nominal=""):
     lines = []
     lines.append("<blockquote>")
@@ -620,7 +629,6 @@ def kb_saldo():
         [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]
     ]
     return InlineKeyboardMarkup(rows)
-# ================== END FITUR TOPUP SALDO ==================
 
 def kb_admin():
     return InlineKeyboardMarkup([
@@ -639,6 +647,18 @@ def kb_acc_detail(un):
         [InlineKeyboardButton("🗑️ Hapus", callback_data=f"del_acc|{un}")],
         [InlineKeyboardButton("🔙 Kembali", callback_data="my_accs")]])
 
+def kb_after_acc(mode="buat"):
+    """Tombol setelah akun dibuat/diperpanjang."""
+    if mode == "extend":
+        return InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Perpanjang Lagi", callback_data="pilih_layanan")],
+            [InlineKeyboardButton("🔙 MENU UTAMA", callback_data="menu|main")]
+        ])
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔄 Buat Lagi", callback_data="pilih_layanan")],
+        [InlineKeyboardButton("🔙 MENU UTAMA", callback_data="menu|main")]
+    ])
+
 def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server_key="sg_1ip"):
     srv = SERVERS.get(server_key, {})
     head = "TRIAL" if is_trial else ("MANUAL" if manual else "PREMIUM")
@@ -652,6 +672,9 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server_key="sg_
         created = now - timedelta(days=days_int)
         created_fmt = f"{created.day} {BULAN_ID[created.month-1]}, {created.year}"
     except: exp_fmt = exp; created_fmt = "-"
+    # SSH OVPN: pakai ssh_ovpn kalau ada, fallback ke nama server tanpa emoji
+    ssh_ovpn_val = srv.get("ssh_ovpn") or srv.get("name","SG NEWMEDIA").replace("🇸🇬 ","").strip()
+
     lines = []
     lines.append("◤ <b>SSH OVPN ACCOUNT</b> ◢")
     lines.append(f"     ❖ <b>{head}</b> ❖")
@@ -660,7 +683,7 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server_key="sg_
     lines.append("<code>")
     lines.append(f"City       : {srv.get('city','Singapore')}")
     lines.append(f"ISP        : {srv.get('isp','DigitalOcean LLC')}")
-    lines.append(f"SSH OVPN   : {srv.get('ssh_ovpn','SG NEWMEDIA')}")
+    lines.append(f"SSH OVPN   : {ssh_ovpn_val}")
     lines.append(f"Username   : {u}")
     lines.append(f"Password   : {p}")
     lines.append(f"Quota      : Unlimited")
@@ -743,7 +766,10 @@ async def do_create_account(chat, uid, user, username, password, hari, is_trial=
     if not is_trial:
         add_trx(uid, user.first_name or "User", user.username or "", "buat_akun", price, f"{hari}h {srv.get('name','')}")
     dl_txt = f"{TRIAL_DURATION_MIN} Minute" if is_trial else f"{hari} Hari"
-    await msg.edit_text(acc_caption(username, password, r["exp"], dl_txt, ip_limit, r.get("manual",False), is_trial, server_key), parse_mode="HTML")
+    await msg.edit_text(
+        acc_caption(username, password, r["exp"], dl_txt, ip_limit,
+                    r.get("manual",False), is_trial, server_key),
+        reply_markup=kb_after_acc("buat"), parse_mode="HTML")
 
 async def do_extend_account(chat, uid, user, username, hari, server_key):
     srv = SERVERS.get(server_key, {})
@@ -763,36 +789,30 @@ async def do_extend_account(chat, uid, user, username, hari, server_key):
             reply_markup=kb, parse_mode="HTML")
         return
     msg = await chat.send_message(f"⚙️ Memperpanjang akun <b>{username}</b> selama <b>{hari} hari</b>...", parse_mode="HTML")
-    # Hitung exp baru
     a = get_acc(username)
     try:
         old_exp = datetime.strptime(a["exp"], "%Y-%m-%d").date()
     except: old_exp = datetime.now().date()
     today = datetime.now().date()
-    # Kalau akun sudah expired, hitung dari hari ini
     base = old_exp if old_exp > today else today
     new_exp = base + timedelta(days=hari)
     new_exp_str = new_exp.strftime("%Y-%m-%d")
-    # Update sistem SSH
     ok = await asyncio.to_thread(ssh_extend, username, new_exp_str)
     if not ok:
         await msg.edit_text("❌ Gagal perpanjang akun di sistem.", parse_mode="HTML"); return
-    # Update JSON
     a["exp"] = new_exp_str
     a["days"] = int(a.get("days", 0)) + hari
     a["harga"] = int(a.get("harga", 0)) + price
     save_acc(username, a)
-    # Potong saldo
     ok2, _ = reduce_bal(uid, price)
     if not ok2:
         await msg.edit_text("❌ Gagal potong saldo.", parse_mode="HTML"); return
-    # Log transaksi
     add_trx(uid, user.first_name or "User", user.username or "", "perpanjang", price, f"{hari}h {username}")
-    # Tampilkan akun yang sudah diperpanjang
     dl_txt = f"{a.get('days',30)} Hari"
     await msg.edit_text(
-        acc_caption(username, a["password"], new_exp_str, dl_txt, a.get("limit_ip",1), a.get("manual",False), a.get("is_trial",False), server_key),
-        parse_mode="HTML")
+        acc_caption(username, a["password"], new_exp_str, dl_txt, a.get("limit_ip",1),
+                    a.get("manual",False), a.get("is_trial",False), server_key),
+        reply_markup=kb_after_acc("extend"), parse_mode="HTML")
 
 async def _do_delete_account(uid, uname, user, chat):
     a = get_acc(uname)
@@ -1161,7 +1181,7 @@ async def msg(u, c):
     track_user(u.effective_user)
     t = (u.message.text or "").strip()
 
-    # ================= STEP: BUAT AKUN =================
+    # STEP: BUAT AKUN
     step = c.user_data.get("buat_step")
     if step:
         data = c.user_data.get("buat_data",{})
@@ -1202,14 +1222,13 @@ async def msg(u, c):
             await do_create_account(u.effective_chat, uid, u.effective_user, un, pw, hari, server_key=server_key)
             return
 
-    # ================= STEP: PERPANJANG =================
+    # STEP: PERPANJANG
     estep = c.user_data.get("extend_step")
     if estep:
         data = c.user_data.get("extend_data", {})
         server_key = data.get("server_key", "sg_1ip")
 
         if estep == "username":
-            # Cek akun ada & milik user
             if not is_username_taken(t):
                 await u.message.reply_text("❌ Akun tidak ditemukan.\n\n👤 Masukkan username akun :", parse_mode="HTML"); return
             a = get_acc(t)

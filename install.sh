@@ -190,13 +190,26 @@ echo "$ADMIN_ID" > /etc/sansxml-adminid
 echo ""
 echo -e "  ${YELLOW}▸ Konfigurasi Auto Backup GitHub${NC}"
 
-# ===== GITHUB CREDS AUTO-FILLED =====
+# ============================================================
+# ⚠️  ISI TOKEN GITHUB BARU DI SINI SEBELUM JALANKAN INSTALLER
+# Generate: https://github.com/settings/tokens?type=beta
+# Scope: Contents = Read and write, hanya repo VPN-backup-
+# ============================================================
 GH_USER="accbotvsbot-blip"
 GH_REPO="VPN-backup-"
-GH_TOKEN="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"
+GH_TOKEN="GANTI_DENGAN_TOKEN_BARU"        # <<< GANTI INI
 GH_EMAIL="accbotvsbot@gmail.com"
-# =====================================
-echo -e "  ${CYAN}▸ Repo: ${GREEN}${GH_USER}/${GH_REPO}${NC}"
+# ============================================================
+
+if [ "$GH_TOKEN" = "GANTI_DENGAN_TOKEN_BARU" ]; then
+    echo -e "  ${RED}❌ GITHUB TOKEN BELUM DIISI!${NC}"
+    echo -e "  ${YELLOW}Edit: nano /root/install.sh${NC}"
+    echo -e "  ${YELLOW}Cari: GH_TOKEN=\"GANTI_DENGAN_TOKEN_BARU\"${NC}"
+    echo ""
+    read -p "  Skip backup GitHub & lanjut? [y/N] : " SKIP_BK
+    if [[ ! "$SKIP_BK" =~ ^[Yy]$ ]]; then exit 1; fi
+    GH_TOKEN=""
+fi
 
 BACKUP_ENABLED=0
 if [ -n "$GH_USER" ] && [ -n "$GH_REPO" ] && [ -n "$GH_TOKEN" ]; then
@@ -235,23 +248,22 @@ BEOF
 #!/bin/bash
 source /etc/sansxml-backup.conf 2>/dev/null
 cd /root/vpnbot_backup || exit 1
-for f in vpnbot_users.json vpnbot_balance.json vpnbot_accounts.json vpnbot_trial.json vpnbot_trx.json vpnbot_blocked.json vpnbot_config.json; do
+for f in vpnbot_users.json vpnbot_balance.json vpnbot_accounts.json vpnbot_trial.json vpnbot_trx.json vpnbot_blocked.json vpnbot_config.json bot.py; do
     [ -f "/root/$f" ] && cp "/root/$f" "./$f"
 done
 git add -A
 if ! git diff --cached --quiet; then
     git -c user.email="$GH_EMAIL" -c user.name="$GH_USER" commit -m "Auto backup: $(date '+%Y-%m-%d %H:%M:%S')" -q
-    git push "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" HEAD:main -q 2>/dev/null || \
-    git push "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" HEAD:master -q 2>/dev/null
+    if ! git push "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" HEAD:main -q 2>/dev/null; then
+        git pull --no-rebase -X ours "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" main -q 2>/dev/null
+        git push "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" HEAD:main -q 2>/dev/null
+    fi
 fi
 BEOF
     chmod +x /root/vpnbot_backup.sh
     ( crontab -l 2>/dev/null | grep -v vpnbot_backup.sh; echo "*/5 * * * * /root/vpnbot_backup.sh >/dev/null 2>&1" ) | crontab -
     systemctl restart cron 2>/dev/null || systemctl restart crond 2>/dev/null
-    /root/vpnbot_backup.sh >/dev/null 2>&1
     echo -e "  ${GREEN}✓ Auto backup aktif (setiap 5 menit)${NC}"
-else
-    echo -e "  ${YELLOW}! Backup di-skip${NC}"
 fi
 
 cat > /root/vpnbot_config.json << CFGEOF
@@ -295,6 +307,10 @@ systemctl restart ssh 2>/dev/null || systemctl restart sshd
 
 echo ""; echo -e "  ${YELLOW}▸ Install Bot Telegram${NC}"
 
+if [ -f /root/vpnbot_backup/bot.py ]; then
+    cp /root/vpnbot_backup/bot.py /root/bot.py
+    echo -e "  ${GREEN}✓${NC} bot.py di-restore dari backup GitHub"
+else
 cat > /root/bot.py << 'BOTPYEOF'
 #!/usr/bin/env python3
 import re, io, json, os, logging, subprocess, asyncio, base64, random, string, socket
@@ -348,6 +364,32 @@ logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=lo
 logger = logging.getLogger(__name__)
 
 def is_owner(uid): return uid in ADMIN_IDS
+
+def load_backup_conf():
+    d = {"GH_USER":"", "GH_REPO":"", "GH_TOKEN":"", "GH_EMAIL":""}
+    if os.path.exists("/etc/sansxml-backup.conf"):
+        with open("/etc/sansxml-backup.conf") as f:
+            for line in f:
+                for k in d.keys():
+                    if line.startswith(k + "="):
+                        d[k] = line.split("=",1)[1].strip().strip('"').strip()
+    return d
+
+def save_backup_conf(ghu, ghr, ght, ghe):
+    with open("/etc/sansxml-backup.conf", "w") as f:
+        f.write(f'GH_USER="{ghu}"\n')
+        f.write(f'GH_REPO="{ghr}"\n')
+        f.write(f'GH_TOKEN="{ght}"\n')
+        f.write(f'GH_EMAIL="{ghe}"\n')
+    try: os.chmod("/etc/sansxml-backup.conf", 0o600)
+    except: pass
+    try:
+        subprocess.run(
+            ["git", "remote", "set-url", "origin",
+             f"https://{ghu}:{ght}@github.com/{ghu}/{ghr}.git"],
+            cwd="/root/vpnbot_backup", capture_output=True, timeout=10)
+    except: pass
+
 def rupiah(n): return f"Rp {int(n):,}".replace(",", ".")
 def load_json(p, d):
     if not os.path.exists(p): return d
@@ -718,11 +760,36 @@ def kb_user_detail(uid_key, page):
         [InlineKeyboardButton("🔄 Refresh", callback_data=f"admin|user|{uid_key}|{page}")],
         [InlineKeyboardButton("🔙 Kembali", callback_data=f"admin|users|{page}")]])
 
+def backup_config_text():
+    conf = load_backup_conf()
+    ght = conf.get("GH_TOKEN", "")
+    tok_disp = (ght[:10] + "..." + ght[-4:]) if len(ght) > 20 else "(kosong)"
+    lines = ["<blockquote>", "🔄 <b>PENGATURAN BACKUP GITHUB</b>", "───────────────────────",
+             f"├ Username : <code>{conf.get('GH_USER','-')}</code>",
+             f"├ Repo     : <code>{conf.get('GH_REPO','-')}</code>",
+             f"├ Email    : <code>{conf.get('GH_EMAIL','-')}</code>",
+             f"╰ Token    : <code>{tok_disp}</code>",
+             "───────────────────────",
+             "<i>Backup otomatis tiap 5 menit ke repo private.</i>",
+             "</blockquote>"]
+    return "\n".join(lines)
+
+def kb_backup():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("👤 Ganti Username", callback_data="backup_edit|user"),
+         InlineKeyboardButton("📁 Ganti Repo", callback_data="backup_edit|repo")],
+        [InlineKeyboardButton("🔑 Ganti Token", callback_data="backup_edit|token"),
+         InlineKeyboardButton("📧 Ganti Email", callback_data="backup_edit|email")],
+        [InlineKeyboardButton("🧪 Test Koneksi", callback_data="backup_test"),
+         InlineKeyboardButton("🚀 Push Sekarang", callback_data="backup_push")],
+        [InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")]])
+
 def kb_admin():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("💻 Kelola VPN", callback_data="admin|srv"),
          InlineKeyboardButton("👤 Daftar Pengguna", callback_data="admin|users|0")],
-        [InlineKeyboardButton("📢 Broadcast", callback_data="admin|bc")],
+        [InlineKeyboardButton("📢 Broadcast", callback_data="admin|bc"),
+         InlineKeyboardButton("🔄 Backup GitHub", callback_data="admin|backup")],
         [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]])
 
 def kb_acc_detail(un):
@@ -789,6 +856,17 @@ def kb_ssh_server():
     rows.append([InlineKeyboardButton("🔙 KEMBALI", callback_data="pilih_layanan")])
     return InlineKeyboardMarkup(rows)
 
+def kb_ssh_server_locked():
+    rows = []; keys = list(SERVERS.keys())
+    for i in range(0, len(keys), 2):
+        row = []
+        for j in range(i, min(i+2, len(keys))):
+            k = keys[j]
+            row.append(InlineKeyboardButton(SERVERS[k]['name'], callback_data="ssh_locked"))
+        rows.append(row)
+    rows.append([InlineKeyboardButton("🔙 KEMBALI", callback_data="ssh_locked")])
+    return InlineKeyboardMarkup(rows)
+
 def kb_ssh_server_extend():
     rows = []; keys = list(SERVERS.keys())
     for i in range(0, len(keys), 2):
@@ -801,6 +879,9 @@ def kb_ssh_server_extend():
     return InlineKeyboardMarkup(rows)
 
 def kb_coming_soon(p): return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 KEMBALI", callback_data="pilih_layanan")]])
+
+def locked_menu_text():
+    return ssh_server_text()
 
 def kb_dashboard(uid):
     rows = [
@@ -966,7 +1047,15 @@ async def auto_cleanup_task():
                         if (today - datetime.strptime(a["exp"], "%Y-%m-%d").date()).days >= 1: expired = True
                     except: pass
                 if expired:
-                    await asyncio.to_thread(ssh_delete, un); delete_acc_json(un); dele += 1
+                    if a.get("is_trial"):
+                        await asyncio.to_thread(ssh_delete, un)
+                        a["os_deleted"] = True
+                        a["deleted_at"] = now.isoformat()
+                        save_acc(un, a)
+                    else:
+                        await asyncio.to_thread(ssh_delete, un)
+                        delete_acc_json(un)
+                    dele += 1
             if dele > 0: logger.info(f"[AUTO-CLEANUP] {dele} expired")
             accs = load_json(ACCOUNTS_FILE, {}); blk = load_json(BLOCK_FILE, {})
             for un, a in accs.items():
@@ -998,6 +1087,7 @@ async def cb(u, c):
     q = u.callback_query; await q.answer()
     d = q.data; chat = u.effective_chat
     if d == "noop": return
+    if d == "ssh_locked": return
 
     if d == "refresh":
         try: await q.message.delete()
@@ -1081,7 +1171,63 @@ async def cb(u, c):
         except: pass
         return
 
+    if d == "admin|backup":
+        if not is_owner(uid): return
+        try: await q.edit_message_text(backup_config_text(), reply_markup=kb_backup(), parse_mode="HTML")
+        except: pass
+        return
+
+    if d.startswith("backup_edit|"):
+        if not is_owner(uid): return
+        field = d.split("|")[1]
+        c.user_data["backup_field"] = field
+        prompts = {
+            "user": "Kirim <b>username GitHub</b> baru:\nContoh: <code>accbotvsbot-blip</code>",
+            "repo": "Kirim <b>nama repo private</b> baru:\nContoh: <code>VPN-backup-</code>",
+            "token": "Kirim <b>GitHub token</b> baru (format <code>ghp_xxx</code> atau <code>github_pat_xxx</code>):\n\n⚠️ <i>Pesan ini akan dihapus otomatis setelah diterima.</i>",
+            "email": "Kirim <b>email GitHub</b> baru:\nContoh: <code>user@gmail.com</code>"
+        }
+        try:
+            await q.edit_message_text(
+                f"✏️ <b>GANTI {field.upper()}</b>\n\n{prompts.get(field,'')}",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Batal", callback_data="admin|backup")]]),
+                parse_mode="HTML")
+        except: pass
+        return
+
+    if d == "backup_test":
+        if not is_owner(uid): return
+        try:
+            r = subprocess.run(["git", "ls-remote", "origin"],
+                cwd="/root/vpnbot_backup", capture_output=True, text=True, timeout=20)
+            if r.returncode == 0 and "refs/heads" in r.stdout:
+                m = "✅ <b>Koneksi OK</b>"
+            else:
+                m = f"❌ <b>Gagal</b>\n<code>{(r.stderr or r.stdout)[:200]}</code>"
+        except Exception as e:
+            m = f"❌ Error: <code>{str(e)[:200]}</code>"
+        try: await q.edit_message_text(m + "\n\n" + backup_config_text(), reply_markup=kb_backup(), parse_mode="HTML")
+        except: pass
+        return
+
+    if d == "backup_push":
+        if not is_owner(uid): return
+        try: await q.edit_message_text("⏳ <b>Push backup...</b>", parse_mode="HTML")
+        except: pass
+        try:
+            r = subprocess.run(["bash", "/root/vpnbot_backup.sh"], capture_output=True, text=True, timeout=60)
+            if r.returncode == 0:
+                m = "✅ <b>Backup berhasil di-push!</b>"
+            else:
+                m = f"❌ <b>Gagal</b>\n<code>{(r.stderr or r.stdout)[:300]}</code>"
+        except Exception as e:
+            m = f"❌ Error: <code>{str(e)[:200]}</code>"
+        try: await q.edit_message_text(m + "\n\n" + backup_config_text(), reply_markup=kb_backup(), parse_mode="HTML")
+        except: pass
+        return
+
     if d.startswith("extend|"):
+        if c.user_data.get("created_in_session"): return
         server_key = d.split("|")[1]
         if server_key not in SERVERS:
             await chat.send_message("❌ Server tidak valid.", parse_mode="HTML"); return
@@ -1093,6 +1239,7 @@ async def cb(u, c):
         return
 
     if d.startswith("buat|"):
+        if c.user_data.get("created_in_session"): return
         server_key = d.split("|")[1]
         if server_key not in SERVERS:
             await chat.send_message("❌ Server tidak valid.", parse_mode="HTML"); return
@@ -1109,6 +1256,8 @@ async def cb(u, c):
             uniq = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
             c.user_data.clear()
             await do_create_account(chat, uid, u.effective_user, f"trial-{uniq}", f"trial{uniq}", 1, is_trial=True, server_key=server_key)
+            c.user_data["created_in_session"] = True
+            await chat.send_message(locked_menu_text(), reply_markup=kb_ssh_server_locked(), parse_mode="HTML")
             return
         else:
             c.user_data["buat_step"] = "username"
@@ -1119,13 +1268,22 @@ async def cb(u, c):
     if d == "my_accs":
         accs = []
         for a in get_user_accs(uid):
-            if a.get("is_trial",False): continue
+            if a.get("is_trial"): continue
             try:
-                if (datetime.strptime(a["exp"],"%Y-%m-%d").date() - datetime.now().date()).days < 0: continue
-            except: pass
+                ed = datetime.strptime(a["exp"], "%Y-%m-%d").date()
+                if (ed - datetime.now().date()).days < 0: continue
+            except: continue
             accs.append(a)
-        hdr = ["<blockquote>", "💻 <b>AKUN SAYA</b>", "───────────────────────", "", f"📭 Total Akun : <b>{len(accs)}</b>", ""]
-        if not accs: hdr += ["Belum ada akun premium.", "Silakan buat akun terlebih dahulu.", ""]
+        def _srt(x):
+            try:
+                ed = datetime.strptime(x["exp"], "%Y-%m-%d").date()
+                return (not x.get("is_trial", False), x.get("created_at",""))
+            except:
+                return (False, "")
+        accs.sort(key=_srt, reverse=True)
+        hdr = ["<blockquote>", "💻 <b>AKUN SAYA</b>", "───────────────────────", "",
+               f"📭 Akun Aktif : <b>{len(accs)}</b>", ""]
+        if not accs: hdr += ["Belum ada akun aktif.", "Silakan buat akun terlebih dahulu.", ""]
         hdr += ["───────────────────────", "</blockquote>"]
         if not accs:
             rows = [[InlineKeyboardButton("➕ BUAT AKUN", callback_data="buat_akun")],
@@ -1135,7 +1293,11 @@ async def cb(u, c):
             for a in accs[:20]:
                 un = a.get("username","")
                 b = get_block_info(un)
-                rows.append([InlineKeyboardButton(f"{'🚫' if b else '👤'} {un}{' (DIBLOKIR)' if b else ''}", callback_data=f"acc_detail|{un}")])
+                if b:
+                    label = f"🚫 {un} (DIBLOKIR)"
+                else:
+                    label = f"👤 {un}"
+                rows.append([InlineKeyboardButton(label, callback_data=f"acc_detail|{un}")])
             rows.append([InlineKeyboardButton("🔙 KEMBALI", callback_data="menu|main")])
         try: await q.edit_message_text("\n".join(hdr), reply_markup=InlineKeyboardMarkup(rows), parse_mode="HTML")
         except: pass
@@ -1325,6 +1487,43 @@ async def msg(u, c):
     track_user(u.effective_user)
     t = (u.message.text or "").strip()
 
+    backup_field = c.user_data.get("backup_field")
+    if backup_field and is_owner(uid):
+        c.user_data["backup_field"] = None
+        if backup_field == "token":
+            try: await u.message.delete()
+            except: pass
+        conf = load_backup_conf()
+        err = None
+        if backup_field == "user":
+            if not re.match(r'^[a-zA-Z0-9-]+$', t): err = "Username hanya huruf, angka, dan tanda strip"
+            else: conf["GH_USER"] = t
+        elif backup_field == "repo":
+            if not re.match(r'^[a-zA-Z0-9._-]+$', t): err = "Nama repo tidak valid"
+            else: conf["GH_REPO"] = t
+        elif backup_field == "token":
+            if not (t.startswith("ghp_") or t.startswith("github_pat_")) or len(t) < 20:
+                err = "Format token harus ghp_xxx atau github_pat_xxx"
+            else: conf["GH_TOKEN"] = t
+        elif backup_field == "email":
+            if "@" not in t or "." not in t: err = "Email tidak valid"
+            else: conf["GH_EMAIL"] = t
+        if err:
+            await u.message.reply_text(f"❌ {err}\n\nCoba kirim ulang:", parse_mode="HTML")
+            c.user_data["backup_field"] = backup_field
+            return
+        save_backup_conf(conf["GH_USER"], conf["GH_REPO"], conf["GH_TOKEN"], conf["GH_EMAIL"])
+        try:
+            r = subprocess.run(["git", "ls-remote", "origin"],
+                cwd="/root/vpnbot_backup", capture_output=True, text=True, timeout=20)
+            test = "✅ Koneksi OK" if r.returncode == 0 else f"⚠️ <code>{(r.stderr or r.stdout)[:150]}</code>"
+        except Exception as e:
+            test = f"⚠️ <code>{str(e)[:100]}</code>"
+        await u.message.reply_text(
+            f"✅ <b>Disimpan!</b>\n\n{test}\n\n" + backup_config_text(),
+            reply_markup=kb_backup(), parse_mode="HTML")
+        return
+
     srv_edit = c.user_data.get("srv_edit")
     if srv_edit and is_owner(uid):
         key = srv_edit.get("key"); field = srv_edit.get("field")
@@ -1455,6 +1654,8 @@ async def msg(u, c):
                     f"Silakan topup saldo melalui menu\nTombol <b>💰 TOPUP SALDO</b>.",
                     reply_markup=kb, parse_mode="HTML"); return
             await do_create_account(u.effective_chat, uid, u.effective_user, un, pw, hari, server_key=server_key)
+            c.user_data["created_in_session"] = True
+            await u.message.reply_text(locked_menu_text(), reply_markup=kb_ssh_server_locked(), parse_mode="HTML")
             return
 
     estep = c.user_data.get("extend_step")
@@ -1502,6 +1703,8 @@ async def msg(u, c):
             un = data.get("username")
             c.user_data["extend_step"] = None; c.user_data["extend_data"] = {}
             await do_extend_account(u.effective_chat, uid, u.effective_user, un, hari, server_key)
+            c.user_data["created_in_session"] = True
+            await u.message.reply_text(locked_menu_text(), reply_markup=kb_ssh_server_locked(), parse_mode="HTML")
             return
 
 async def handle_photo(u, c):
@@ -1525,6 +1728,7 @@ def main():
 if __name__ == "__main__":
     main()
 BOTPYEOF
+fi
 
 chmod +x /root/bot.py
 python3 -m py_compile /root/bot.py 2>&1 | tee /root/bot_compile.log

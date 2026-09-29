@@ -662,28 +662,28 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server_key="sg_
 
     ssh_ovpn_val = srv.get("ssh_ovpn") or srv.get("name","SG NEWMEDIA").replace("🇸🇬 ","").strip()
 
-    # PAYLOAD (WS & TLS berbeda)
-    payload_ws = "GET /cdn-cgi/trace HTTP/1.1[crlf]Host: Bug_Kalian[crlf][crlf]GET-RAY / HTTP/1.1[crlf]Host: [host][crlf]Connection: Upgrade[crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf][crlf]"
+    payload_ws = "GET /cdn-cgi/trace HTTP/1.1[crlf]Host: [host][crlf][crlf]GET-RAY / HTTP/1.1[crlf]Host: [host][crlf]Connection: Upgrade[crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf][crlf]"
     payload_tls = "GET / HTTP/1.1[crlf]Host: [host][crlf]User-Agent: [ua][crlf]Upgrade: websocket[crlf]Connection: Upgrade[crlf][crlf]"
 
     lines = []
+    lines.append("<blockquote>")
     lines.append("◤ <b>SSH OVPN ACCOUNT</b> ◢")
     lines.append(f"     ❖ <b>{head}</b> ❖")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
     lines.append("")
-    lines.append("<code>")
+    lines.append("")
     lines.append(f"City       : {srv.get('city','Singapore')}")
     lines.append(f"ISP        : {srv.get('isp','DigitalOcean LLC')}")
     lines.append(f"SSH OVPN   : {ssh_ovpn_val}")
     lines.append(f"Username   : {u}")
     lines.append(f"Password   : {p}")
-    lines.append(f"Quota      : Unlimited")
+    lines.append("Quota      : Unlimited")
     lines.append(f"Limit IP   : {ip} IP")
-    lines.append("</code>")
+    lines.append("")
     lines.append("")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
     lines.append("")
-    lines.append("<code>")
+    lines.append("")
     lines.append(f"Host     : {SSH_HOST}")
     lines.append("OpenSSH  : 443, 80, 22")
     lines.append("Dropbear : 443, 109")
@@ -692,23 +692,18 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server_key="sg_
     lines.append("SSH UDP  : 1-65535")
     lines.append("OVPN     : 443, 1194, 2200")
     lines.append("BadVPN   : 7100, 7300")
-    lines.append("</code>")
+    lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append(f"SSL : {SSH_HOST}:443@{u}:{p}")
     lines.append("")
+    lines.append(f"WS  : {SSH_HOST}:80@{u}:{p}")
+    lines.append("")
+    lines.append(f"UDP : {SSH_HOST}:1-65535@{u}:{p}")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
     lines.append("")
-    lines.append("<code>")
-    lines.append(f"SSL      : {SSH_HOST}:443@{u}:{p}")
-    lines.append(f"WS       : {SSH_HOST}:80@{u}:{p}")
-    lines.append(f"UDP      : {SSH_HOST}:1-65535@{u}:{p}")
-    lines.append("</code>")
-    lines.append("")
-    lines.append("<blockquote>")
-    lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
-    lines.append("")
-    lines.append("<b>PAYLOAD WS</b>")
+    lines.append("PAYLOAD WS")
     lines.append(payload_ws)
     lines.append("")
-    lines.append("<b>PAYLOAD TLS</b>")
+    lines.append("PAYLOAD TLS")
     lines.append(payload_tls)
     lines.append("")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━")
@@ -767,6 +762,9 @@ async def do_create_account(chat, uid, user, username, password, hari, is_trial=
         acc_caption(username, password, r["exp"], dl_txt, ip_limit,
                     r.get("manual",False), is_trial, server_key),
         parse_mode="HTML")
+    try:
+        await chat.send_message(dashboard_text(user, uid), reply_markup=kb_dashboard(uid), parse_mode="HTML")
+    except: pass
 
 async def do_extend_account(chat, uid, user, username, hari, server_key):
     srv = SERVERS.get(server_key, {})
@@ -810,6 +808,9 @@ async def do_extend_account(chat, uid, user, username, hari, server_key):
         acc_caption(username, a["password"], new_exp_str, dl_txt, a.get("limit_ip",1),
                     a.get("manual",False), a.get("is_trial",False), server_key),
         parse_mode="HTML")
+    try:
+        await chat.send_message(dashboard_text(user, uid), reply_markup=kb_dashboard(uid), parse_mode="HTML")
+    except: pass
 
 async def _do_delete_account(uid, uname, user, chat):
     a = get_acc(uname)
@@ -861,7 +862,6 @@ async def cb(u, c):
         except: pass
         return
 
-    # TOPUP
     if d == "isi_saldo":
         c.user_data["saldo_input"] = ""
         try: await q.edit_message_text(saldo_text(uid), reply_markup=kb_saldo(), parse_mode="HTML")
@@ -951,6 +951,8 @@ async def cb(u, c):
         server_key = d.split("|")[1]
         if server_key not in SERVERS:
             await chat.send_message("❌ Server tidak valid.", parse_mode="HTML"); return
+        try: await q.message.delete()
+        except: pass
         c.user_data["extend_step"] = "username"
         c.user_data["extend_data"] = {"server_key": server_key}
         await chat.send_message("👤 <b>Masukkan username akun yang ingin diperpanjang :</b>", parse_mode="HTML")
@@ -968,6 +970,8 @@ async def cb(u, c):
                 f"Slot tersedia: <b>{used}/{mx}</b>\n\n"
                 f"Silakan pilih server lain.</blockquote>",
                 parse_mode="HTML"); return
+        try: await q.message.delete()
+        except: pass
         mode = c.user_data.get("mode", "buat")
         if mode == "trial":
             if trial_left(uid) <= 0:
@@ -1060,7 +1064,6 @@ async def cb(u, c):
             except: pass
         return
 
-    # ADMIN
     if d == "admin|menu":
         if not is_owner(uid): return
         try: await q.edit_message_text(f"⚙️ <b>ADMIN PANEL</b>\n\n👥 User: <b>{len(load_json(USERS_FILE,{}))}</b>\n🔑 Akun: <b>{count_accounts()}</b>\n💰 Saldo: <b>{rupiah(sum(load_json(BAL_FILE,{}).values()))}</b>", reply_markup=kb_admin(), parse_mode="HTML")

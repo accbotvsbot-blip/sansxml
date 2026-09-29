@@ -10,21 +10,45 @@ spin(){ local pid=$1 msg="$2"; local f=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦
 
 clear
 echo ""; echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "  ${CYAN}   SC AUTO INSTALL VPN SSH${NC}"
+echo -e "  ${CYAN}   SC AUTO INSTALL VPN SSH v3.1${NC}"
 echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; echo ""
 
 echo -e "  ${YELLOW}▸ Cleanup service lama${NC}"
-( for s in ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot xray; do systemctl stop "$s" 2>/dev/null; systemctl disable "$s" 2>/dev/null; rm -f "/etc/systemd/system/${s}.service"; done
+( for s in ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot xray zivpn; do systemctl stop "$s" 2>/dev/null; systemctl disable "$s" 2>/dev/null; rm -f "/etc/systemd/system/${s}.service"; done
   systemctl daemon-reload; systemctl reset-failed 2>/dev/null ) & spin $! "Stop service lama"
 
-( fuser -k 80/tcp 8080/tcp 443/tcp 8443/tcp 2>/dev/null
-  pkill -f ws-ssh.py 2>/dev/null; pkill -f badvpn-udpgw 2>/dev/null; pkill -f vpnbot 2>/dev/null; sleep 2 ) & spin $! "Kill port VPN"
+( fuser -k 80/tcp 8080/tcp 443/tcp 8443/tcp 7300/udp 2>/dev/null
+  pkill -f ws-ssh.py 2>/dev/null; pkill -f badvpn-udpgw 2>/dev/null; pkill -f vpnbot 2>/dev/null; pkill -f zivpn 2>/dev/null; sleep 2 ) & spin $! "Kill port VPN"
 
-( rm -f /usr/local/bin/ws-ssh.py /etc/stunnel/stunnel.conf /etc/stunnel/stunnel.pem /usr/bin/badvpn-udpgw
-  rm -f /etc/profile.d/sansxml-menu.sh /root/bot.py /root/vpnbot.log
-  rm -f /root/.ssh/id_bot /root/.ssh/id_bot.pub /etc/issue /etc/issue.net /etc/motd
-  rm -f /etc/ssh/sshd_config.d/99-vpnbot.conf /etc/sansxml-* /root/.bash_profile
+( rm -f /usr/local/bin/ws-ssh.py /etc/stunnel/stunnel.conf /etc/stunnel/stunnel.pem
+  rm -f /usr/bin/badvpn-udpgw /usr/local/bin/badvpn-udpgw
+  rm -f /usr/local/bin/zivpn /usr/local/sbin/menu /usr/local/bin/vps-menu
+  rm -rf /etc/zivpn /usr/local/zivpn /usr/local/src/badvpn
+  rm -f /etc/profile.d/*menu* /etc/profile.d/*sans*
+  rm -f /root/bot.py /root/vpnbot.log /root/install.sh.bak*
+  rm -f /root/.ssh/id_bot /root/.ssh/id_bot.pub
+  rm -f /etc/sansxml-* /root/.bash_profile
   rm -rf /tmp/badvpn ) & spin $! "Hapus file lama"
+
+# Bersihin .bashrc dari auto-menu
+if [ -f /root/.bashrc ]; then
+    cp /root/.bashrc /root/.bashrc.installer-bak 2>/dev/null
+    python3 - << 'PYEOF' 2>/dev/null
+p="/root/.bashrc"
+try:
+    with open(p) as f: lines=f.readlines()
+    out=[]; skip=0
+    for l in lines:
+        s=l.strip()
+        if s=="fi" and skip==0:
+            prev=[x.strip() for x in out[-5:]]
+            if not any(x.startswith("if ") for x in prev): continue
+        if any(x in l for x in ["vps-menu","/usr/local/sbin/menu","SC_MENU","sc-menu"]): continue
+        out.append(l)
+    with open(p,"w") as f: f.writelines(out)
+except: pass
+PYEOF
+fi
 
 echo -e "  ${GREEN}✓${NC}  ${WHITE}Data user & riwayat DIBIARKAN${NC}"; echo ""
 echo -e "  ${YELLOW}▸ Install dependencies${NC}"
@@ -33,7 +57,7 @@ echo -e "  ${YELLOW}▸ Install dependencies${NC}"
 ( pip3 install --break-system-packages --upgrade "python-telegram-bot>=20" requests qrcode pillow >/dev/null 2>&1 \
     || pip3 install --upgrade "python-telegram-bot>=20" requests qrcode pillow >/dev/null 2>&1 ) & spin $! "Install Telegram API"
 ( mkdir -p /root/.ssh; chmod 700 /root/.ssh
-  ssh-keygen -t ed25519 -f /root/.ssh/id_bot -N "" -q
+  [ ! -f /root/.ssh/id_bot ] && ssh-keygen -t ed25519 -f /root/.ssh/id_bot -N "" -q
   cat /root/.ssh/id_bot.pub >> /root/.ssh/authorized_keys
   sort -u /root/.ssh/authorized_keys -o /root/.ssh/authorized_keys
   chmod 600 /root/.ssh/authorized_keys ) & spin $! "Generate SSH key"
@@ -227,7 +251,7 @@ if [ -n "$GH_USER" ] && [ -n "$GH_REPO" ] && [ -n "$GH_TOKEN" ]; then
     echo -e "  ${CYAN}▸ Cek backup di GitHub...${NC}"
     if git pull origin main -q 2>/dev/null || git pull origin master -q 2>/dev/null; then
         echo -e "  ${GREEN}✓ Backup ditemukan! Restore data...${NC}"
-        for f in vpnbot_users.json vpnbot_balance.json vpnbot_accounts.json vpnbot_trial.json vpnbot_trx.json vpnbot_blocked.json; do
+        for f in vpnbot_users.json vpnbot_balance.json vpnbot_accounts.json vpnbot_trial.json vpnbot_trx.json vpnbot_blocked.json bot.py; do
             if [ -f "/root/vpnbot_backup/$f" ]; then
                 cp "/root/vpnbot_backup/$f" "/root/$f"
                 echo -e "    ${GREEN}✓${NC} $f"
@@ -266,6 +290,7 @@ BEOF
     echo -e "  ${GREEN}✓ Auto backup aktif (setiap 5 menit)${NC}"
 fi
 
+# Selalu tulis ulang config dengan token terbaru
 cat > /root/vpnbot_config.json << CFGEOF
 {
   "bot_token": "${BOT_TOKEN}",
@@ -307,7 +332,10 @@ systemctl restart ssh 2>/dev/null || systemctl restart sshd
 
 echo ""; echo -e "  ${YELLOW}▸ Install Bot Telegram${NC}"
 
-if [ -f /root/vpnbot_backup/bot.py ]; then
+# Kalau ada bot.py di backup, pakai yang dari backup (versi terbaru user)
+if [ -f /root/bot.py ]; then
+    echo -e "  ${GREEN}✓${NC} bot.py sudah ada (dari backup/restore)"
+elif [ -f /root/vpnbot_backup/bot.py ]; then
     cp /root/vpnbot_backup/bot.py /root/bot.py
     echo -e "  ${GREEN}✓${NC} bot.py di-restore dari backup GitHub"
 else
@@ -1255,9 +1283,8 @@ async def cb(u, c):
             use_trial(uid)
             uniq = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
             c.user_data.clear()
-            await do_create_account(chat, uid, u.effective_user, f"trial-{uniq}", f"trial{uniq}", 1, is_trial=True, server_key=server_key)
             c.user_data["created_in_session"] = True
-            await chat.send_message(locked_menu_text(), reply_markup=kb_ssh_server_locked(), parse_mode="HTML")
+            await do_create_account(chat, uid, u.effective_user, f"trial-{uniq}", f"trial{uniq}", 1, is_trial=True, server_key=server_key)
             return
         else:
             c.user_data["buat_step"] = "username"
@@ -1653,9 +1680,8 @@ async def msg(u, c):
                     f"📉 Kurang     : <b>{rupiah(price - get_bal(uid))}</b></blockquote>\n\n"
                     f"Silakan topup saldo melalui menu\nTombol <b>💰 TOPUP SALDO</b>.",
                     reply_markup=kb, parse_mode="HTML"); return
-            await do_create_account(u.effective_chat, uid, u.effective_user, un, pw, hari, server_key=server_key)
             c.user_data["created_in_session"] = True
-            await u.message.reply_text(locked_menu_text(), reply_markup=kb_ssh_server_locked(), parse_mode="HTML")
+            await do_create_account(u.effective_chat, uid, u.effective_user, un, pw, hari, server_key=server_key)
             return
 
     estep = c.user_data.get("extend_step")
@@ -1702,9 +1728,8 @@ async def msg(u, c):
                 return
             un = data.get("username")
             c.user_data["extend_step"] = None; c.user_data["extend_data"] = {}
-            await do_extend_account(u.effective_chat, uid, u.effective_user, un, hari, server_key)
             c.user_data["created_in_session"] = True
-            await u.message.reply_text(locked_menu_text(), reply_markup=kb_ssh_server_locked(), parse_mode="HTML")
+            await do_extend_account(u.effective_chat, uid, u.effective_user, un, hari, server_key)
             return
 
 async def handle_photo(u, c):
@@ -1732,7 +1757,11 @@ fi
 
 chmod +x /root/bot.py
 python3 -m py_compile /root/bot.py 2>&1 | tee /root/bot_compile.log
-[ -s /root/bot_compile.log ] && echo -e "  ${RED}❌ Bot error — cek /root/bot_compile.log${NC}" || echo -e "  ${GREEN}✓ Bot OK${NC}"
+if [ -s /root/bot_compile.log ]; then
+    echo -e "  ${RED}❌ Bot error — cek /root/bot_compile.log${NC}"
+else
+    echo -e "  ${GREEN}✓ Bot OK${NC}"
+fi
 
 cat > /etc/systemd/system/vpnbot.service << 'SVCEOF'
 [Unit]
@@ -1752,6 +1781,9 @@ systemctl daemon-reload
 systemctl enable vpnbot >/dev/null 2>&1
 systemctl restart vpnbot
 sleep 4
+
+# Push initial backup kalau belum ada
+[ "$BACKUP_ENABLED" = "1" ] && bash /root/vpnbot_backup.sh >/dev/null 2>&1
 
 clear
 echo ""; echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -1776,7 +1808,16 @@ echo ""
 INSTALLEREOF
 
 chmod +x /root/install.sh
+echo ""
 echo "✅ INSTALLER SIAP: /root/install.sh"
 wc -l /root/install.sh
 echo ""
-echo "Jalankan: bash /root/install.sh"
+echo "📋 CARA PAKAI:"
+echo "  1. Edit token GitHub dulu:"
+echo "     nano /root/install.sh"
+echo "     Cari: GH_TOKEN=\"GANTI_DENGAN_TOKEN_BARU\""
+echo "     Ganti dengan token baru"
+echo ""
+echo "  2. Jalankan:"
+echo "     bash /root/install.sh"
+echo ""

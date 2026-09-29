@@ -1,4 +1,3 @@
-cat > /root/install.sh << 'INSTALLEREOF'
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
 CYAN='\033[1;36m'; GREEN='\033[1;32m'; RED='\033[1;31m'
@@ -9,48 +8,95 @@ spin(){ local pid=$1 msg="$2"; local f=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦
     printf "\r  ${GREEN}✓${NC}  ${WHITE}%s${NC}        \n" "$msg"; }
 
 clear
-echo ""; echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "  ${CYAN}   SC AUTO INSTALL VPN SSH v3.3${NC}"
-echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; echo ""
+echo ""
+echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "  ${CYAN}      SC AUTO INSTALL VPN SSH v4.1${NC}"
+echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
 
-echo -e "  ${YELLOW}▸ Cleanup service lama${NC}"
-( for s in ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot xray zivpn; do systemctl stop "$s" 2>/dev/null; systemctl disable "$s" 2>/dev/null; rm -f "/etc/systemd/system/${s}.service"; done
-  systemctl daemon-reload; systemctl reset-failed 2>/dev/null ) & spin $! "Stop service lama"
-
-( fuser -k 80/tcp 8080/tcp 443/tcp 8443/tcp 7300/udp 2>/dev/null
-  pkill -f ws-ssh.py 2>/dev/null; pkill -f badvpn-udpgw 2>/dev/null; pkill -f vpnbot 2>/dev/null; pkill -f zivpn 2>/dev/null; sleep 2 ) & spin $! "Kill port VPN"
-
-( rm -f /usr/local/bin/ws-ssh.py /etc/stunnel/stunnel.conf /etc/stunnel/stunnel.pem
+# ══════════════════════════════════════════
+# 1. CLEANUP TOTAL
+# ══════════════════════════════════════════
+(
+  for s in ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot xray zivpn; do
+    systemctl stop "$s" 2>/dev/null
+    systemctl disable "$s" 2>/dev/null
+    rm -f "/etc/systemd/system/${s}.service"
+  done
+  systemctl daemon-reload 2>/dev/null
+  systemctl reset-failed 2>/dev/null
+  fuser -k 80/tcp 8080/tcp 443/tcp 8443/tcp 7300/udp 2>/dev/null
+  pkill -f ws-ssh.py 2>/dev/null; pkill -f badvpn-udpgw 2>/dev/null
+  pkill -f vpnbot 2>/dev/null; pkill -f zivpn 2>/dev/null
+  pkill -f "/usr/local/sbin/menu" 2>/dev/null; pkill -f vps-menu 2>/dev/null
+  sleep 1
+  rm -f /usr/local/bin/ws-ssh.py
+  rm -f /etc/stunnel/stunnel.conf /etc/stunnel/stunnel.pem
   rm -f /usr/bin/badvpn-udpgw /usr/local/bin/badvpn-udpgw
   rm -f /usr/local/bin/zivpn /usr/local/sbin/menu /usr/local/bin/vps-menu
   rm -rf /etc/zivpn /usr/local/zivpn /usr/local/src/badvpn
-  rm -f /etc/profile.d/*menu* /etc/profile.d/*sans*
-  rm -f /root/bot.py /root/vpnbot.log /root/install.sh.bak*
-  rm -f /root/.ssh/id_bot /root/.ssh/id_bot.pub
-  rm -f /root/.bash_profile
-  rm -rf /tmp/badvpn ) & spin $! "Hapus file lama"
-
-# Bersihin .bashrc dari auto-menu
-if [ -f /root/.bashrc ]; then
-    cp /root/.bashrc /root/.bashrc.installer-bak 2>/dev/null
-    python3 - << 'PYEOF' 2>/dev/null
-p="/root/.bashrc"
-try:
-    with open(p) as f: lines=f.readlines()
-    out=[]; skip=0
-    for l in lines:
-        s=l.strip()
-        if s=="fi" and skip==0:
-            prev=[x.strip() for x in out[-5:]]
-            if not any(x.startswith("if ") for x in prev): continue
-        if any(x in l for x in ["vps-menu","/usr/local/sbin/menu","SC_MENU","sc-menu"]): continue
-        out.append(l)
-    with open(p,"w") as f: f.writelines(out)
-except: pass
-PYEOF
+  rm -f /etc/profile.d/*menu* /etc/profile.d/*sans* /etc/profile.d/*vpn*
+  rm -f /root/bot.py /root/vpnbot.log /root/bot_compile.log
+  rm -f /root/install.sh /root/uninstall.sh /root/reset_vps.sh
+  rm -f /root/patch_*.py /root/migrate.sh /root/restore_ssh_users.sh
+  rm -f /root/.ssh/id_bot /root/.ssh/id_bot.pub /root/.bash_profile
+  rm -f /etc/ssh/sshd_config.d/99-vpnbot.conf
+  rm -rf /tmp/badvpn /etc/sansxml-*
+  rm -f /etc/issue /etc/issue.net /etc/motd
+  rm -rf /etc/motd.d/* 2>/dev/null
+  for u in $(awk -F: '$3>=1000 && $3<60000 {print $1}' /etc/passwd); do
+    pkill -9 -u "$u" 2>/dev/null
+    userdel -r "$u" 2>/dev/null
+  done
+  mkdir -p /root/.ssh; chmod 700 /root/.ssh
+  > /root/.ssh/authorized_keys
+  chmod 600 /root/.ssh/authorized_keys
+  cat > /root/.bashrc << 'RCEOF'
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+HISTCONTROL=ignoreboth
+shopt -s histappend
+HISTSIZE=1000
+HISTFILESIZE=2000
+shopt -s checkwinsize
+if [ -x /usr/bin/lesspipe ]; then eval "$(SHELL=/bin/sh lesspipe)"; fi
+if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then debian_chroot=$(cat /etc/debian_chroot); fi
+case "$TERM" in
+    xterm-color|*-256color) color_prompt=yes;;
+esac
+if [ "$color_prompt" = yes ]; then
+    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+else
+    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
 fi
+unset color_prompt force_color_prompt
+case "$TERM" in
+xterm*|rxvt*) PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1" ;;
+esac
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+    alias ls='ls --color=auto'; alias grep='grep --color=auto'
+fi
+alias ll='ls -alF'; alias la='ls -A'; alias l='ls -CF'
+if [ -f ~/.bash_aliases ]; then . ~/.bash_aliases; fi
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then . /etc/bash_completion; fi
+fi
+RCEOF
+  crontab -r 2>/dev/null
+  ufw --force disable >/dev/null 2>&1
+  ufw --force reset >/dev/null 2>&1
+  iptables -F 2>/dev/null; iptables -X 2>/dev/null
+  iptables -t nat -F 2>/dev/null; iptables -t nat -X 2>/dev/null
+) & spin $! "Bersihkan VPS"
 
-echo -e "  ${GREEN}✓${NC}  ${WHITE}Data user & riwayat DIBIARKAN${NC}"; echo ""
+# ══════════════════════════════════════════
+# 2. DEPENDENCIES
+# ══════════════════════════════════════════
+echo ""
 echo -e "  ${YELLOW}▸ Install dependencies${NC}"
 ( apt-get update -y >/dev/null 2>&1 ) & spin $! "Update repository"
 ( apt-get install -y python3 python3-pip python3-venv sshpass curl wget unzip stunnel4 net-tools cron ufw iptables openssl cmake build-essential git pkg-config bc jq who procps dnsutils >/dev/null 2>&1 ) & spin $! "Install packages"
@@ -61,6 +107,10 @@ echo -e "  ${YELLOW}▸ Install dependencies${NC}"
   cat /root/.ssh/id_bot.pub >> /root/.ssh/authorized_keys
   sort -u /root/.ssh/authorized_keys -o /root/.ssh/authorized_keys
   chmod 600 /root/.ssh/authorized_keys ) & spin $! "Generate SSH key"
+
+# ══════════════════════════════════════════
+# 3. VPN SERVICES
+# ══════════════════════════════════════════
 echo ""
 echo -e "  ${YELLOW}▸ Install VPN services${NC}"
 
@@ -189,57 +239,27 @@ WantedBy=multi-user.target
 EOF
 ) & spin $! "Compile BadVPN UDPGW"
 
-( ufw --force disable >/dev/null 2>&1; ufw --force reset >/dev/null 2>&1
-  ufw default allow incoming >/dev/null 2>&1; ufw default allow outgoing >/dev/null 2>&1
+( ufw default allow incoming >/dev/null 2>&1
+  ufw default allow outgoing >/dev/null 2>&1
   for p in 22 80 443 8080 8443; do ufw allow $p/tcp >/dev/null 2>&1; done
-  ufw allow 7300/udp >/dev/null 2>&1; ufw allow 1:65535/udp >/dev/null 2>&1
+  ufw allow 7300/udp >/dev/null 2>&1
+  ufw allow 1:65535/udp >/dev/null 2>&1
   ufw --force enable >/dev/null 2>&1 ) & spin $! "Configure firewall"
 
 ( systemctl daemon-reload
   systemctl enable ws-ssh ws-ssh-alt stunnel4 >/dev/null 2>&1
   systemctl restart ws-ssh ws-ssh-alt stunnel4
   [ -f /usr/bin/badvpn-udpgw ] && systemctl enable udpgw >/dev/null 2>&1 && systemctl restart udpgw
-  sleep 3 ) & spin $! "Start VPN services"
+  sleep 2 ) & spin $! "Start VPN services"
 
-echo ""; echo -e "  ${YELLOW}▸ Konfigurasi Bot${NC}"; echo ""
-read -p "$(echo -e ${GREEN}'  Bot Token Telegram : '${NC})" BOT_TOKEN
-if [ -z "$BOT_TOKEN" ]; then echo -e "  ${RED}❌ Token tidak boleh kosong${NC}"; exit 1; fi
-
-DOMAIN="sgivip.naaofficial.web.id"
-ADMIN_ID="6144358600"
-echo "$BOT_TOKEN" > /etc/sansxml-bottoken
-echo "$DOMAIN" > /etc/sansxml-domain
-echo "$ADMIN_ID" > /etc/sansxml-adminid
-
-echo ""
-echo -e "  ${YELLOW}▸ Auto Backup GitHub${NC}"
-echo -e "  ${CYAN}ℹ️  Setup lewat bot Telegram (setelah install)${NC}"
-echo -e "  ${CYAN}   Menu: /start → PENGATURAN → Backup GitHub${NC}"
-
-cat > /root/vpnbot_config.json << CFGEOF
-{
-  "bot_token": "${BOT_TOKEN}",
-  "domain": "${DOMAIN}",
-  "owner_ids": [${ADMIN_ID}],
-  "servers": {
-    "sg_1ip": {"name": "🇸🇬 PRIME SG-01", "city": "Singapore", "isp": "DigitalOcean LLC", "ssh_ovpn": "DIGITALOCEAN • PRIME SG-01", "domain": "${DOMAIN}", "price_day": 117, "price_month": 3510, "ip_limit": 1, "slot_max": 50},
-    "sg_2ip": {"name": "🇸🇬 PRIME SG-02", "city": "Singapore", "isp": "DigitalOcean LLC", "ssh_ovpn": "DIGITALOCEAN • PRIME SG-02", "domain": "${DOMAIN}", "price_day": 167, "price_month": 5010, "ip_limit": 2, "slot_max": 50}
-  },
-  "ip_limit": 2,
-  "block_hours": 5
-}
-CFGEOF
-
-rm -f /etc/issue /etc/issue.net /etc/motd
-rm -rf /etc/motd.d/* 2>/dev/null
-chmod -x /etc/update-motd.d/* 2>/dev/null
-rm -f /etc/update-motd.d/* 2>/dev/null
-
+# ══════════════════════════════════════════
+# 4. SSH CONFIG
+# ══════════════════════════════════════════
+rm -rf /etc/update-motd.d/* 2>/dev/null
 cat > /etc/issue.net << 'BEOF'
-<br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卐&nbsp;</b></font><font color="#ffff00"><b>SANSXML&nbsp;VPN&nbsp;STORE</b></font><font color="#ffffff"><b>&nbsp;卐&nbsp;---</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;──&nbsp;PREMIUM&nbsp;VPN&nbsp;SERVER&nbsp;──</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;---&nbsp;卍&nbsp;TERM&nbsp;OF&nbsp;SERVICE&nbsp;卐&nbsp;---</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;MULTI&nbsp;LOGIN&nbsp;!!</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NO&nbsp;HACKING&nbsp;AND&nbsp;CARDING</b></font><br><font color="#ffff00"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;👉&nbsp;MULTI&nbsp;LOGIN&nbsp;BANNED&nbsp;👈</b></font><br><font color="#ff00aa"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;▬▬▬▬▬▬ஜ۩۞۩ஜ▬▬▬▬▬▬</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ORDER&nbsp;CONFIG&nbsp;PREMIUM:&nbsp;</b></font><font color="#00ff44"><b>wa.me/6289527419748</b></font><br><font color="#ffffff"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;BOT&nbsp;ORDER&nbsp;VPN:&nbsp;</b></font><font color="#00ff44"><b>t.me/unokwn</b></font><br><br>
+<br><font color="#ff00aa"><b>SANSXML VPN STORE</b></font><br><font color="#ffff00"><b>PREMIUM VPN SERVER</b></font><br><br>
 BEOF
 cp /etc/issue.net /etc/motd
-
 sed -i '/^[[:space:]]*ListenAddress/d' /etc/ssh/sshd_config
 mkdir -p /etc/ssh/sshd_config.d
 cat > /etc/ssh/sshd_config.d/99-vpnbot.conf << 'SSHEOF'
@@ -252,12 +272,47 @@ PubkeyAuthentication yes
 UsePAM yes
 Banner /etc/issue.net
 PrintMotd yes
+ClientAliveInterval 15
+ClientAliveCountMax 2
+TCPKeepAlive yes
 SSHEOF
 systemctl restart ssh 2>/dev/null || systemctl restart sshd
 
-echo ""; echo -e "  ${YELLOW}▸ Install Bot Telegram${NC}"
+# ══════════════════════════════════════════
+# 5. KONFIGURASI BOT
+# ══════════════════════════════════════════
+echo ""
+echo -e "  ${YELLOW}▸ Konfigurasi Bot${NC}"
+echo ""
+read -r -p "$(echo -e ${GREEN}'  Bot Token Telegram : '${NC})" BOT_TOKEN < /dev/tty
+if [ -z "$BOT_TOKEN" ]; then echo -e "  ${RED}❌ Token tidak boleh kosong${NC}"; exit 1; fi
 
-cat > /root/bot.py << 'BOTPYEOF'
+DOMAIN="sgivip.naaofficial.web.id"
+ADMIN_ID="6144358600"
+echo "$BOT_TOKEN" > /etc/sansxml-bottoken
+echo "$DOMAIN" > /etc/sansxml-domain
+echo "$ADMIN_ID" > /etc/sansxml-adminid
+
+cat > /root/vpnbot_config.json << CFGEOF
+{
+  "bot_token": "${BOT_TOKEN}",
+  "domain": "${DOMAIN}",
+  "owner_ids": [${ADMIN_ID}],
+  "servers": {
+    "sg_1ip": {"name": "🇸🇬 PRIME SG-01", "city": "Singapore", "isp": "DigitalOcean LLC", "ssh_ovpn": "DIGITALOCEAN • PRIME SG-01", "domain": "${DOMAIN}", "price_day": 117, "price_month": 3510, "ip_limit": 1, "slot_max": 50},
+    "sg_2ip": {"name": "🇸🇬 PRIME SG-02", "city": "Singapore", "isp": "DigitalOcean LLC", "ssh_ovpn": "DIGITALOCEAN • PRIME SG-02", "domain": "${DOMAIN}", "price_day": 167, "price_month": 5010, "ip_limit": 2, "slot_max": 50}
+  },
+  "ip_limit": 2,
+  "block_hours": 2
+}
+CFGEOF
+
+# ══════════════════════════════════════════
+# 6. INSTALL BOT
+# ══════════════════════════════════════════
+echo ""
+echo -e "  ${YELLOW}▸ Install Bot${NC}"
+( cat > /root/bot.py << 'BOTPYEOF'
 #!/usr/bin/env python3
 import re, io, json, os, logging, subprocess, asyncio, base64, random, string, socket
 from datetime import datetime, timedelta
@@ -266,7 +321,7 @@ from telegram.ext import Application, CommandHandler, CallbackQueryHandler, Mess
 
 CONFIG_FILE = "/root/vpnbot_config.json"
 def load_config():
-    d = {"bot_token":"", "domain":"", "owner_ids":[6144358600], "servers":{}, "ip_limit":2, "block_hours":5}
+    d = {"bot_token":"", "domain":"", "owner_ids":[6144358600], "servers":{}, "ip_limit":2, "block_hours":2}
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE) as f: c = json.load(f)
@@ -291,16 +346,6 @@ MIN_TOPUP = 1000
 BLOCK_FILE = "/root/vpnbot_blocked.json"
 BLOCK_HOURS = 2
 
-def get_price(hari, server_key=None):
-    if server_key and server_key in SERVERS: srv = SERVERS[server_key]
-    else: srv = list(SERVERS.values())[0] if SERVERS else {"price_day": 117}
-    return int(srv.get("price_day", 117)) * int(hari)
-
-def get_server_slot_number(server_key):
-    keys = list(SERVERS.keys())
-    if server_key in keys: return keys.index(server_key) + 1
-    return 1
-
 USERS_FILE="/root/vpnbot_users.json"; BAL_FILE="/root/vpnbot_balance.json"
 ACCOUNTS_FILE="/root/vpnbot_accounts.json"; TRIAL_FILE="/root/vpnbot_trial.json"
 TRX_FILE="/root/vpnbot_trx.json"
@@ -310,6 +355,12 @@ logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s", level=lo
 logger = logging.getLogger(__name__)
 
 def is_owner(uid): return uid in ADMIN_IDS
+def rupiah(n): return f"Rp {int(n):,}".replace(",", ".")
+
+def get_price(hari, server_key=None):
+    if server_key and server_key in SERVERS: srv = SERVERS[server_key]
+    else: srv = list(SERVERS.values())[0] if SERVERS else {"price_day": 117}
+    return int(srv.get("price_day", 117)) * int(hari)
 
 def load_backup_conf():
     d = {"GH_USER":"", "GH_REPO":"", "GH_TOKEN":"", "GH_EMAIL":""}
@@ -321,22 +372,66 @@ def load_backup_conf():
                         d[k] = line.split("=",1)[1].strip().strip('"').strip()
     return d
 
-def setup_backup_env(ghu, ghr, ght, ghe):
-    """Setup folder backup + cron + auto-push pertama."""
+def save_backup_conf(ghu, ghr, ght, ghe):
+    with open("/etc/sansxml-backup.conf", "w") as f:
+        f.write(f'GH_USER="{ghu}"\n')
+        f.write(f'GH_REPO="{ghr}"\n')
+        f.write(f'GH_TOKEN="{ght}"\n')
+        f.write(f'GH_EMAIL="{ghe}"\n')
+    try: os.chmod("/etc/sansxml-backup.conf", 0o600)
+    except: pass
+
+def ssh_run(cmd, timeout=30):
+    full = ["ssh","-i",SSH_KEY_PATH,"-o","StrictHostKeyChecking=no","-o","UserKnownHostsFile=/dev/null",
+            "-o","ConnectTimeout=10","-o","PubkeyAuthentication=yes","-o","PasswordAuthentication=no",
+            "-o","LogLevel=ERROR","-p","22","root@127.0.0.1",cmd]
     try:
-        os.makedirs("/root/vpnbot_backup", exist_ok=True)
-        subprocess.run(["git", "init", "-q"], cwd="/root/vpnbot_backup", capture_output=True)
-        subprocess.run(["git", "config", "user.email", ghe], cwd="/root/vpnbot_backup", capture_output=True)
-        subprocess.run(["git", "config", "user.name", ghu], cwd="/root/vpnbot_backup", capture_output=True)
-        subprocess.run(["git", "branch", "-M", "main"], cwd="/root/vpnbot_backup", capture_output=True)
-        remote = f"https://{ghu}:{ght}@github.com/{ghu}/{ghr}.git"
-        subprocess.run(["git", "remote", "remove", "origin"], cwd="/root/vpnbot_backup", capture_output=True)
-        subprocess.run(["git", "remote", "add", "origin", remote], cwd="/root/vpnbot_backup", capture_output=True)
-        
-        sh_path = "/root/vpnbot_backup.sh"
-        if not os.path.exists(sh_path):
-            with open(sh_path, "w") as f:
-                f.write("""#!/bin/bash
+        r = subprocess.run(full, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout.strip(), r.stderr.strip()
+    except subprocess.TimeoutExpired: return -1,"","Timeout"
+    except Exception as e: return -2,"",str(e)
+
+def load_json(p, d):
+    if not os.path.exists(p): return d
+    try:
+        with open(p) as f: return json.load(f)
+    except: return d
+def save_json(p, d):
+    with open(p,"w") as f: json.dump(d,f,indent=2,ensure_ascii=False)
+
+def restore_ssh_users_from_json():
+    """Recreate user OS dari vpnbot_accounts.json."""
+    accs = load_json(ACCOUNTS_FILE, {})
+    today = datetime.now().date()
+    created = 0; skipped = 0
+    for un, a in accs.items():
+        try:
+            exp = datetime.strptime(a["exp"], "%Y-%m-%d").date()
+        except:
+            skipped += 1; continue
+        if (exp - today).days < 0:
+            skipped += 1; continue
+        pw = a.get("password", "")
+        if not pw:
+            skipped += 1; continue
+        pw_b64 = base64.b64encode(pw.encode()).decode()
+        exp_str = a["exp"]
+        cmd = (f"userdel -r {un} 2>/dev/null; "
+               f"useradd -m -s /bin/bash {un} 2>&1 ; "
+               f"chage -E '{exp_str}' {un} 2>&1 ; "
+               f"chage -M 99999 {un} 2>&1 ; chage -I -1 {un} 2>&1 ; "
+               f"PW=$(echo '{pw_b64}' | base64 -d) ; "
+               f"printf '%s:%s\\n' '{un}' \"$PW\" | chpasswd 2>&1 ; "
+               f"passwd -u {un} 2>&1 ; usermod -U {un} 2>&1")
+        ssh_run(cmd)
+        created += 1
+    logger.info(f"[RESTORE] {created} user dibuat, {skipped} skip")
+    return created, skipped
+
+def _write_backup_sh():
+    sh_path = "/root/vpnbot_backup.sh"
+    with open(sh_path, "w") as f:
+        f.write("""#!/bin/bash
 source /etc/sansxml-backup.conf 2>/dev/null
 cd /root/vpnbot_backup || exit 1
 for f in vpnbot_users.json vpnbot_balance.json vpnbot_accounts.json vpnbot_trial.json vpnbot_trx.json vpnbot_blocked.json vpnbot_config.json bot.py; do
@@ -351,132 +446,105 @@ if ! git diff --cached --quiet; then
     fi
 fi
 """)
-            os.chmod(sh_path, 0o755)
-        
+    os.chmod(sh_path, 0o755)
+
+def setup_backup_env(ghu, ghr, ght, ghe):
+    """Setup backup + auto-pull + restore + recreate user OS."""
+    try:
+        bdir = "/root/vpnbot_backup"
+        os.makedirs(bdir, exist_ok=True)
+        if not os.path.exists(f"{bdir}/.git"):
+            subprocess.run(["git", "init", "-q"], cwd=bdir, capture_output=True)
+        subprocess.run(["git", "config", "user.email", ghe], cwd=bdir, capture_output=True)
+        subprocess.run(["git", "config", "user.name", ghu], cwd=bdir, capture_output=True)
+        subprocess.run(["git", "branch", "-M", "main"], cwd=bdir, capture_output=True)
+        remote = f"https://{ghu}:{ght}@github.com/{ghu}/{ghr}.git"
+        subprocess.run(["git", "remote", "remove", "origin"], cwd=bdir, capture_output=True)
+        subprocess.run(["git", "remote", "add", "origin", remote], cwd=bdir, capture_output=True)
+
+        # PULL dulu (restore kalau VPS baru)
+        pulled = False
+        for branch in ["main", "master"]:
+            r = subprocess.run(
+                ["git", "pull", "origin", branch, "--allow-unrelated-histories", "--no-rebase", "-X", "ours"],
+                cwd=bdir, capture_output=True, text=True, timeout=30)
+            if r.returncode == 0:
+                pulled = True; break
+
+        # Copy JSON dari GitHub ke /root/
+        restored = 0
+        for f in ["vpnbot_users.json","vpnbot_balance.json","vpnbot_accounts.json",
+                  "vpnbot_trial.json","vpnbot_trx.json","vpnbot_blocked.json"]:
+            src = f"{bdir}/{f}"
+            if os.path.exists(src) and os.path.getsize(src) > 2:
+                with open(src) as ff: content = ff.read().strip()
+                if content and content not in ("{}", "[]"):
+                    with open(f"/root/{f}", "w") as ff: ff.write(content)
+                    restored += 1
+
+        _write_backup_sh()
         subprocess.run("crontab -l 2>/dev/null | grep -v vpnbot_backup.sh | crontab -", shell=True)
         subprocess.run('( crontab -l 2>/dev/null; echo "*/5 * * * * /root/vpnbot_backup.sh >/dev/null 2>&1" ) | crontab -', shell=True)
         subprocess.run("systemctl restart cron 2>/dev/null || systemctl restart crond 2>/dev/null", shell=True)
-        
         subprocess.run(["bash", "/root/vpnbot_backup.sh"], capture_output=True, timeout=60)
-        return True
-    except: return False
+        return True, restored
+    except Exception as e:
+        return False, str(e)
 
-def save_backup_conf(ghu, ghr, ght, ghe):
-    with open("/etc/sansxml-backup.conf", "w") as f:
-        f.write(f'GH_USER="{ghu}"\n')
-        f.write(f'GH_REPO="{ghr}"\n')
-        f.write(f'GH_TOKEN="{ght}"\n')
-        f.write(f'GH_EMAIL="{ghe}"\n')
-    try: os.chmod("/etc/sansxml-backup.conf", 0o600)
-    except: pass
+def reset_backup_env():
+    """Hapus backup GitHub + config + folder."""
     try:
-        subprocess.run(
-            ["git", "remote", "set-url", "origin",
-             f"https://{ghu}:{ght}@github.com/{ghu}/{ghr}.git"],
-            cwd="/root/vpnbot_backup", capture_output=True, timeout=10)
-    except: pass
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        safety = f"/root/vpnbot_safety_{ts}"
+        os.makedirs(safety, exist_ok=True)
+        for f in ["vpnbot_users.json","vpnbot_balance.json","vpnbot_accounts.json",
+                  "vpnbot_trial.json","vpnbot_trx.json","vpnbot_blocked.json"]:
+            if os.path.exists(f"/root/{f}"):
+                shutil.copy(f"/root/{f}", f"{safety}/{f}")
 
-def rupiah(n): return f"Rp {int(n):,}".replace(",", ".")
-def load_json(p, d):
-    if not os.path.exists(p): return d
-    try:
-        with open(p) as f: return json.load(f)
-    except: return d
-def save_json(p, d):
-    with open(p,"w") as f: json.dump(d,f,indent=2,ensure_ascii=False)
-def track_user(u):
-    d = load_json(USERS_FILE,{})
-    d[str(u.id)] = {"first_name": u.first_name or "", "username": u.username or "", "last_seen": datetime.now().isoformat()}
-    save_json(USERS_FILE,d)
-def get_bal(uid): return load_json(BAL_FILE,{}).get(str(uid),0)
-def add_bal(uid, amt):
-    d = load_json(BAL_FILE,{}); d[str(uid)] = d.get(str(uid),0)+int(amt); save_json(BAL_FILE,d); return d[str(uid)]
-def reduce_bal(uid, amt):
-    d = load_json(BAL_FILE,{}); cur = d.get(str(uid),0)
-    if cur < amt: return False, cur
-    d[str(uid)] = cur - amt; save_json(BAL_FILE,d); return True, d[str(uid)]
-def add_trx(uid, name, uname, tipe, jumlah, ket=""):
-    d = load_json(TRX_FILE,[])
-    d.append({"user_id":uid,"name":name,"username":uname,"tipe":tipe,"jumlah":int(jumlah),"ket":ket,"waktu":datetime.now().isoformat()})
-    save_json(TRX_FILE,d)
-def get_stats(uid=None):
-    d = load_json(TRX_FILE,[])
-    if uid: d = [t for t in d if t["user_id"]==uid]
-    today = datetime.now().strftime("%Y-%m-%d")
-    week = (datetime.now()-timedelta(days=7)).strftime("%Y-%m-%d")
-    month = datetime.now().strftime("%Y-%m")
-    return {"hari":sum(1 for t in d if t["waktu"].startswith(today) and t["tipe"]=="buat_akun"),
-            "minggu":sum(1 for t in d if t["waktu"][:10]>=week and t["tipe"]=="buat_akun"),
-            "bulan":sum(1 for t in d if t["waktu"].startswith(month) and t["tipe"]=="buat_akun"),
-            "total":sum(1 for t in d if t["tipe"]=="buat_akun")}
-def get_income():
-    d = load_json(TRX_FILE,[])
-    today = datetime.now().strftime("%Y-%m-%d")
-    week = (datetime.now()-timedelta(days=7)).strftime("%Y-%m-%d")
-    month = datetime.now().strftime("%Y-%m")
-    return {"hari":sum(t["jumlah"] for t in d if t["waktu"].startswith(today) and t["tipe"]=="buat_akun"),
-            "minggu":sum(t["jumlah"] for t in d if t["waktu"][:10]>=week and t["tipe"]=="buat_akun"),
-            "bulan":sum(t["jumlah"] for t in d if t["waktu"].startswith(month) and t["tipe"]=="buat_akun"),
-            "total":sum(t["jumlah"] for t in d if t["tipe"]=="buat_akun")}
-def get_acc(u): return load_json(ACCOUNTS_FILE,{}).get(u)
-def get_user_accs(uid): return [a for a in load_json(ACCOUNTS_FILE,{}).values() if a.get("user_id")==uid]
-def save_acc(u, d):
-    dd = load_json(ACCOUNTS_FILE,{}); dd[u]=d; save_json(ACCOUNTS_FILE,dd)
-def is_username_taken(u): return u.lower() in [k.lower() for k in load_json(ACCOUNTS_FILE,{}).keys()]
-def count_accounts(): return len(load_json(ACCOUNTS_FILE,{}))
-def count_slots(server_key):
-    accs = load_json(ACCOUNTS_FILE, {})
-    today = datetime.now().date()
-    count = 0
-    for a in accs.values():
-        if a.get("server_key") != server_key: continue
-        try:
-            ed = datetime.strptime(a["exp"], "%Y-%m-%d").date()
-            if (ed - today).days >= 0: count += 1
-        except: pass
-    return count
-def get_slot_info(server_key):
-    srv = SERVERS.get(server_key, {})
-    mx = int(srv.get("slot_max", 50))
-    used = count_slots(server_key)
-    return used, mx
-def delete_acc_json(un):
-    dd = load_json(ACCOUNTS_FILE,{})
-    if un in dd:
-        data = dd.pop(un); save_json(ACCOUNTS_FILE,dd); return data
-    return None
-def trial_left(uid):
-    d = load_json(TRIAL_FILE,{}); today = datetime.now().strftime("%Y-%m-%d")
-    u = d.get(str(uid),{})
-    if u.get("date") != today: return TRIAL_PER_DAY
-    return max(0, TRIAL_PER_DAY - u.get("used",0))
-def use_trial(uid):
-    d = load_json(TRIAL_FILE,{}); today = datetime.now().strftime("%Y-%m-%d")
-    u = d.get(str(uid),{})
-    if u.get("date") != today: u = {"date":today,"used":0}
-    u["used"] = u.get("used",0)+1
-    d[str(uid)] = u; save_json(TRIAL_FILE,d)
-def hitung_refund(a):
-    try:
-        if a.get("is_trial"): return 0
-        hg = int(a.get("harga", 0)); th = int(a.get("days", 30))
-        if hg <= 0 or th <= 0: return 0
-        exp = datetime.strptime(a["exp"], "%Y-%m-%d").date()
-        sisa = (exp - datetime.now().date()).days
-        if sisa <= 0: return 0
-        refund = int(round((hg/th) * sisa))
-        return max(0, min(refund, hg))
-    except: return 0
+        conf = load_backup_conf()
+        bdir = "/root/vpnbot_backup"
+        if conf.get("GH_USER") and conf.get("GH_REPO") and conf.get("GH_TOKEN"):
+            if not os.path.exists(bdir):
+                os.makedirs(bdir, exist_ok=True)
+                subprocess.run(["git", "init", "-q"], cwd=bdir, capture_output=True)
+                subprocess.run(["git", "config", "user.email", conf["GH_EMAIL"]], cwd=bdir, capture_output=True)
+                subprocess.run(["git", "config", "user.name", conf["GH_USER"]], cwd=bdir, capture_output=True)
+                subprocess.run(["git", "branch", "-M", "main"], cwd=bdir, capture_output=True)
+                remote = f"https://{conf['GH_USER']}:{conf['GH_TOKEN']}@github.com/{conf['GH_USER']}/{conf['GH_REPO']}.git"
+                subprocess.run(["git", "remote", "add", "origin", remote], cwd=bdir, capture_output=True)
 
-def ssh_run(cmd, timeout=30):
-    full = ["ssh","-i",SSH_KEY_PATH,"-o","StrictHostKeyChecking=no","-o","UserKnownHostsFile=/dev/null",
-            "-o","ConnectTimeout=10","-o","PubkeyAuthentication=yes","-o","PasswordAuthentication=no",
-            "-o","LogLevel=ERROR","-p","22","root@127.0.0.1",cmd]
-    try:
-        r = subprocess.run(full, capture_output=True, text=True, timeout=timeout)
-        return r.returncode, r.stdout.strip(), r.stderr.strip()
-    except subprocess.TimeoutExpired: return -1,"","Timeout"
-    except Exception as e: return -2,"",str(e)
+            # Hapus semua file di folder (kecuali .git)
+            for f in os.listdir(bdir):
+                if f == ".git": continue
+                fp = os.path.join(bdir, f)
+                try:
+                    if os.path.isfile(fp): os.remove(fp)
+                    elif os.path.isdir(fp): shutil.rmtree(fp)
+                except: pass
+
+            # Buat file kosong biar repo tidak error
+            with open(f"{bdir}/README.md", "w") as f:
+                f.write("# VPN Backup\n\nReset on " + ts + "\n")
+
+            subprocess.run(["git", "add", "-A"], cwd=bdir, capture_output=True)
+            subprocess.run(["git", "-c", f"user.email={conf['GH_EMAIL']}", "-c", f"user.name={conf['GH_USER']}",
+                           "commit", "--allow-empty", "-m", f"RESET {ts}"], cwd=bdir, capture_output=True)
+
+            # Force push
+            for branch in ["main", "master"]:
+                r = subprocess.run(["git", "push", "origin", branch, "-f"], cwd=bdir, capture_output=True, text=True, timeout=30)
+                if r.returncode == 0: break
+
+        if os.path.exists("/etc/sansxml-backup.conf"): os.remove("/etc/sansxml-backup.conf")
+        subprocess.run("crontab -l 2>/dev/null | grep -v vpnbot_backup.sh | crontab -", shell=True)
+        if os.path.exists("/root/vpnbot_backup.sh"): os.remove("/root/vpnbot_backup.sh")
+        if os.path.exists(bdir): shutil.rmtree(bdir)
+        return True, safety
+    except Exception as e:
+        return False, str(e)
+
+import shutil, time
 
 def ssh_create(username, password, days, is_trial=False):
     now = datetime.now()
@@ -527,67 +595,63 @@ def get_vps_public_ip():
 
 def is_valid_domain(val):
     val = val.strip()
-    if len(val) < 3 or len(val) > 253:
-        return False, "Panjang minimal 3 karakter, maksimal 253", None
+    if len(val) < 3 or len(val) > 253: return False, "Panjang minimal 3 karakter", None
     try:
         parts = val.split(".")
         if len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
             return True, "IP Address", None
     except: pass
     parts = val.split(".")
-    if len(parts) < 2:
-        return False, "Domain harus punya titik", None
+    if len(parts) < 2: return False, "Domain harus punya titik", None
     for p in parts:
-        if len(p) < 1 or len(p) > 63:
-            return False, "Setiap bagian domain maksimal 63 karakter", None
-        if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$', p):
-            return False, "Format domain tidak valid", None
-    if not re.match(r'^[a-zA-Z]{2,}$', parts[-1]):
-        return False, "TLD tidak valid", None
-    try:
-        domain_ip = socket.gethostbyname(val)
-    except socket.gaierror:
-        return False, "Domain tidak ditemukan di DNS", None
-    except Exception as e:
-        return False, f"Gagal resolve: {e}", None
+        if len(p) < 1 or len(p) > 63: return False, "Format domain tidak valid", None
+        if not re.match(r'^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$', p): return False, "Format domain tidak valid", None
+    if not re.match(r'^[a-zA-Z]{2,}$', parts[-1]): return False, "TLD tidak valid", None
+    try: domain_ip = socket.gethostbyname(val)
+    except socket.gaierror: return False, "Domain tidak ditemukan di DNS", None
+    except Exception as e: return False, f"Gagal resolve: {e}", None
     vps_ip = get_vps_public_ip()
-    if vps_ip and domain_ip == vps_ip:
-        return True, f"Domain → {domain_ip} ✅ (IP VPS ini)", domain_ip
-    elif vps_ip:
-        return True, f"Domain → {domain_ip} ⚠️ (beda dari IP VPS: {vps_ip})", domain_ip
-    else:
-        return True, f"Domain → {domain_ip}", domain_ip
+    if vps_ip and domain_ip == vps_ip: return True, f"Domain → {domain_ip} ✅", domain_ip
+    elif vps_ip: return True, f"Domain → {domain_ip} ⚠️", domain_ip
+    else: return True, f"Domain → {domain_ip}", domain_ip
 
-def count_ssh_sessions(username):
+def get_active_sessions(username):
     try:
-        r = subprocess.run(f"ps -u {username} -o pid= 2>/dev/null | wc -l", shell=True, capture_output=True, text=True, timeout=5)
-        return int(r.stdout.strip() or 0)
-    except: return 0
-def get_active_ips(username):
-    try:
-        r = subprocess.run("who", shell=True, capture_output=True, text=True, timeout=5)
-        ips = set()
-        for line in r.stdout.splitlines():
-            parts = line.split()
-            if len(parts) >= 5 and parts[0] == username:
-                ip_part = parts[-1].strip("()")
-                if ip_part and ip_part != ":0": ips.add(ip_part)
-        return list(ips)
+        r = subprocess.run(["who"], capture_output=True, text=True, timeout=5)
+        return [l for l in r.stdout.splitlines() if l.split() and l.split()[0] == username]
     except: return []
-def check_limit(username, limit_ip):
-    sessions = count_ssh_sessions(username)
-    ips = get_active_ips(username)
-    over = (sessions > limit_ip) or (len(ips) > limit_ip)
-    return over, sessions, ips
+
+def count_live_shells(username):
+    try:
+        r = subprocess.run(["ps", "-u", username, "-o", "comm="], capture_output=True, text=True, timeout=5)
+        procs = [p.strip() for p in r.stdout.splitlines() if p.strip()]
+        shells = ("bash", "sh", "zsh", "ksh", "dash", "csh", "tcsh")
+        return sum(1 for p in procs if p.lstrip("-") in shells)
+    except: return 0
+
+def check_second_connection(username):
+    sessions = get_active_sessions(username)
+    n = len(sessions)
+    if n <= 1: return False, sessions, n
+    shells = count_live_shells(username)
+    if shells > 1: return True, sessions, shells
+    return False, sessions, shells if shells > 0 else n
+
 def block_user(username, hours=2):
     try:
         subprocess.run(f"passwd -l {username}", shell=True, timeout=10)
         subprocess.run(f"pkill -9 -u {username}", shell=True, timeout=10)
+        try:
+            r = subprocess.run(f"ps -u {username} -o pid= 2>/dev/null", shell=True, capture_output=True, text=True, timeout=5)
+            for pid in r.stdout.split():
+                subprocess.run(f"kill -9 {pid} 2>/dev/null", shell=True, timeout=3)
+        except: pass
         d = load_json(BLOCK_FILE, {})
         d[username] = {"blocked_at": datetime.now().isoformat(),
                        "unblock_at": (datetime.now() + timedelta(hours=hours)).strftime("%Y-%m-%d %H:%M:%S")}
         save_json(BLOCK_FILE, d); return True
     except: return False
+
 def unblock_user(username):
     try:
         subprocess.run(f"passwd -u {username}", shell=True, timeout=10)
@@ -595,19 +659,97 @@ def unblock_user(username):
         if username in d: d.pop(username); save_json(BLOCK_FILE, d)
         return True
     except: return False
-def get_block_info(username):
-    return load_json(BLOCK_FILE, {}).get(username)
 
+def get_block_info(username): return load_json(BLOCK_FILE, {}).get(username)
+def get_bal(uid): return load_json(BAL_FILE,{}).get(str(uid),0)
+def add_bal(uid, amt):
+    d = load_json(BAL_FILE,{}); d[str(uid)] = d.get(str(uid),0)+int(amt); save_json(BAL_FILE,d); return d[str(uid)]
+def reduce_bal(uid, amt):
+    d = load_json(BAL_FILE,{}); cur = d.get(str(uid),0)
+    if cur < amt: return False, cur
+    d[str(uid)] = cur - amt; save_json(BAL_FILE,d); return True, d[str(uid)]
+def get_acc(u): return load_json(ACCOUNTS_FILE,{}).get(u)
+def get_user_accs(uid): return [a for a in load_json(ACCOUNTS_FILE,{}).values() if a.get("user_id")==uid]
+def save_acc(u, d):
+    dd = load_json(ACCOUNTS_FILE,{}); dd[u]=d; save_json(ACCOUNTS_FILE,dd)
+def is_username_taken(u): return u.lower() in [k.lower() for k in load_json(ACCOUNTS_FILE,{}).keys()]
+def count_accounts(): return len(load_json(ACCOUNTS_FILE,{}))
+def delete_acc_json(un):
+    dd = load_json(ACCOUNTS_FILE,{})
+    if un in dd:
+        data = dd.pop(un); save_json(ACCOUNTS_FILE,dd); return data
+    return None
+def count_slots(server_key):
+    accs = load_json(ACCOUNTS_FILE, {})
+    today = datetime.now().date()
+    c = 0
+    for a in accs.values():
+        if a.get("server_key") != server_key: continue
+        try:
+            ed = datetime.strptime(a["exp"], "%Y-%m-%d").date()
+            if (ed - today).days >= 0: c += 1
+        except: pass
+    return c
+def get_slot_info(server_key):
+    srv = SERVERS.get(server_key, {})
+    return count_slots(server_key), int(srv.get("slot_max", 50))
+def trial_left(uid):
+    d = load_json(TRIAL_FILE,{}); today = datetime.now().strftime("%Y-%m-%d")
+    u = d.get(str(uid),{})
+    if u.get("date") != today: return TRIAL_PER_DAY
+    return max(0, TRIAL_PER_DAY - u.get("used",0))
+def use_trial(uid):
+    d = load_json(TRIAL_FILE,{}); today = datetime.now().strftime("%Y-%m-%d")
+    u = d.get(str(uid),{})
+    if u.get("date") != today: u = {"date":today,"used":0}
+    u["used"] = u.get("used",0)+1
+    d[str(uid)] = u; save_json(TRIAL_FILE,d)
+def track_user(u):
+    d = load_json(USERS_FILE,{})
+    d[str(u.id)] = {"first_name": u.first_name or "", "username": u.username or "", "last_seen": datetime.now().isoformat()}
+    save_json(USERS_FILE,d)
+def add_trx(uid, name, uname, tipe, jumlah, ket=""):
+    d = load_json(TRX_FILE,[])
+    d.append({"user_id":uid,"name":name,"username":uname,"tipe":tipe,"jumlah":int(jumlah),"ket":ket,"waktu":datetime.now().isoformat()})
+    save_json(TRX_FILE,d)
+def get_stats(uid=None):
+    d = load_json(TRX_FILE,[])
+    if uid: d = [t for t in d if t["user_id"]==uid]
+    today = datetime.now().strftime("%Y-%m-%d")
+    week = (datetime.now()-timedelta(days=7)).strftime("%Y-%m-%d")
+    month = datetime.now().strftime("%Y-%m")
+    return {"hari":sum(1 for t in d if t["waktu"].startswith(today) and t["tipe"]=="buat_akun"),
+            "minggu":sum(1 for t in d if t["waktu"][:10]>=week and t["tipe"]=="buat_akun"),
+            "bulan":sum(1 for t in d if t["waktu"].startswith(month) and t["tipe"]=="buat_akun"),
+            "total":sum(1 for t in d if t["tipe"]=="buat_akun")}
+def get_income():
+    d = load_json(TRX_FILE,[])
+    today = datetime.now().strftime("%Y-%m-%d")
+    week = (datetime.now()-timedelta(days=7)).strftime("%Y-%m-%d")
+    month = datetime.now().strftime("%Y-%m")
+    return {"hari":sum(t["jumlah"] for t in d if t["waktu"].startswith(today) and t["tipe"]=="buat_akun"),
+            "minggu":sum(t["jumlah"] for t in d if t["waktu"][:10]>=week and t["tipe"]=="buat_akun"),
+            "bulan":sum(t["jumlah"] for t in d if t["waktu"].startswith(month) and t["tipe"]=="buat_akun"),
+            "total":sum(t["jumlah"] for t in d if t["tipe"]=="buat_akun")}
+def hitung_refund(a):
+    try:
+        if a.get("is_trial"): return 0
+        hg = int(a.get("harga", 0)); th = int(a.get("days", 30))
+        if hg <= 0 or th <= 0: return 0
+        exp = datetime.strptime(a["exp"], "%Y-%m-%d").date()
+        sisa = (exp - datetime.now().date()).days
+        if sisa <= 0: return 0
+        return max(0, min(int(round((hg/th) * sisa)), hg))
+    except: return 0
 def count_users_by_period():
     d = load_json(USERS_FILE, {})
     today = datetime.now().strftime("%Y-%m-%d")
     week = (datetime.now()-timedelta(days=7)).strftime("%Y-%m-%d")
     month = datetime.now().strftime("%Y-%m")
-    hari = sum(1 for u in d.values() if (u.get("last_seen","")[:10] == today))
-    minggu = sum(1 for u in d.values() if (u.get("last_seen","")[:10] >= week))
-    bulan = sum(1 for u in d.values() if (u.get("last_seen","")[:7] == month))
-    return {"hari": hari, "minggu": minggu, "bulan": bulan, "total": len(d)}
-
+    return {"hari": sum(1 for u in d.values() if (u.get("last_seen","")[:10] == today)),
+            "minggu": sum(1 for u in d.values() if (u.get("last_seen","")[:10] >= week)),
+            "bulan": sum(1 for u in d.values() if (u.get("last_seen","")[:7] == month)),
+            "total": len(d)}
 def get_server_status():
     result = []
     today = datetime.now().date()
@@ -624,134 +766,14 @@ def get_server_status():
         stat = "🟢 Online" if max(0, mx - used) > 0 else "🔴 Full"
         result.append({"name": srv.get("name","-"), "used": used, "max": mx, "status": stat})
     return result
-
 def save_servers():
     cfg = load_config(); cfg["servers"] = SERVERS; save_config(cfg)
-
-def server_list_text():
-    lines = ["<blockquote>", "💻 <b>KELOLA SERVER</b>", "───────────────────────", ""]
-    for key, srv in SERVERS.items():
-        lines.append(f"<b>{srv.get('name','-')}</b>")
-        lines.append(f"├ Harga Harian  : <b>{rupiah(srv.get('price_day',0))}</b>")
-        lines.append(f"├ Harga Bulanan : <b>{rupiah(srv.get('price_month',0))}</b>")
-        lines.append(f"├ Limit IP      : <b>{srv.get('ip_limit',1)} IP</b>")
-        lines.append(f"╰ Slot Server  : <b>{srv.get('slot_max',50)}</b>")
-        lines.append("")
-    lines.append("───────────────────────"); lines.append("</blockquote>")
-    return "\n".join(lines)
-
-def kb_server_list():
-    rows = []; keys = list(SERVERS.keys())
-    for i in range(0, len(keys), 2):
-        row = []
-        for j in range(i, min(i+2, len(keys))):
-            k = keys[j]
-            row.append(InlineKeyboardButton(SERVERS[k].get('name','-'), callback_data=f"srv_edit|{k}"))
-        rows.append(row)
-    rows.append([InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")])
-    return InlineKeyboardMarkup(rows)
-
-def kb_srv_field(key):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("Nama Server", callback_data=f"srv_set|{key}|name"),
-         InlineKeyboardButton("Harga Bulanan", callback_data=f"srv_set|{key}|price_month")],
-        [InlineKeyboardButton("Limit IP", callback_data=f"srv_set|{key}|ip_limit"),
-         InlineKeyboardButton("Slot Server", callback_data=f"srv_set|{key}|slot_max")],
-        [InlineKeyboardButton("Domain Server", callback_data=f"srv_set|{key}|domain")],
-        [InlineKeyboardButton("🔙 Kembali", callback_data="admin|srv")]])
-
-def get_user_topup_stats(uid_key):
-    d = load_json(TRX_FILE, [])
-    today = datetime.now().strftime("%Y-%m-%d")
-    week = (datetime.now() - timedelta(days=7)).strftime("%Y-%m-%d")
-    month = datetime.now().strftime("%Y-%m")
-    tops = [t for t in d if str(t.get("user_id")) == str(uid_key) and t.get("tipe") == "isi_saldo"]
-    return {"hari": sum(t["jumlah"] for t in tops if t["waktu"].startswith(today)),
-            "minggu": sum(t["jumlah"] for t in tops if t["waktu"][:10] >= week),
-            "bulan": sum(t["jumlah"] for t in tops if t["waktu"].startswith(month)),
-            "total": sum(t["jumlah"] for t in tops)}
-
-def count_active_accounts(uid_key):
-    d = load_json(ACCOUNTS_FILE, {})
-    today = datetime.now().date()
-    cnt = 0
-    for a in d.values():
-        if str(a.get("user_id")) != str(uid_key): continue
-        try:
-            ed = datetime.strptime(a["exp"], "%Y-%m-%d").date()
-            if (ed - today).days >= 0: cnt += 1
-        except: pass
-    return cnt
-
-def user_detail_text(uid_key):
-    users = load_json(USERS_FILE, {})
-    u = users.get(str(uid_key), {})
-    name = u.get("first_name") or "-"
-    uname = u.get("username") or "-"
-    ls = (u.get("last_seen") or "-")[:10]
-    saldo = get_bal(uid_key)
-    akun_aktif = count_active_accounts(uid_key)
-    top = get_user_topup_stats(uid_key)
-    uname_line = f"@{uname}" if uname != "-" else "-"
-    lines = ["<blockquote>"]
-    lines.append(f"👤 <b>{name}</b>")
-    lines.append(f"├ Username    : {uname_line}")
-    lines.append(f"├ Chat ID     : <code>{uid_key}</code>")
-    lines.append(f"├ Bergabung   : {ls}")
-    lines.append(f"├ Total Saldo : <b>{rupiah(saldo)}</b>")
-    lines.append(f"╰ Total Akun Aktif : <b>{akun_aktif}</b>")
-    lines.append("")
-    lines.append("💰 <b>Riwayat Topup</b>")
-    lines.append(f"├ Hari Ini    : {rupiah(top['hari'])}")
-    lines.append(f"├ Minggu Ini  : {rupiah(top['minggu'])}")
-    lines.append(f"├ Bulan Ini   : {rupiah(top['bulan'])}")
-    lines.append(f"╰ Total       : {rupiah(top['total'])}")
-    lines.append("</blockquote>")
-    return "\n".join(lines)
-
-def list_users_paged(page=0, per=10):
-    users = load_json(USERS_FILE, {})
-    keys = [k for k in users.keys() if int(k) not in ADMIN_IDS]
-    keys.sort(key=lambda k: users[k].get("last_seen",""), reverse=True)
-    total = len(keys)
-    tp = max(1, (total + per - 1) // per)
-    page = max(0, min(page, tp - 1))
-    start = page * per
-    chunk = keys[start:start+per]
-    lines = ["<blockquote>", "👤 <b>DAFTAR PENGGUNA</b>", "──────────────────────",
-             f"👥 Total User : <b>{total}</b>", ""]
-    for i, k in enumerate(chunk, start=start+1):
-        u = users[k]
-        lines.append(f"{i}. 👤 {u.get('first_name') or '-'}")
-    lines += ["", "──────────────────────", f"Halaman {page+1}/{tp}", "──────────────────────", "</blockquote>"]
-    return "\n".join(lines), chunk, page, tp, total
-
-def kb_user_list(chunk, page, tp):
-    rows = []
-    users = load_json(USERS_FILE, {})
-    for k in chunk:
-        n = users.get(k, {}).get("first_name") or "-"
-        rows.append([InlineKeyboardButton(f"👤 {n}", callback_data=f"admin|user|{k}|{page}")])
-    nav = []
-    if page > 0: nav.append(InlineKeyboardButton("◀ Prev", callback_data=f"admin|users|{page-1}"))
-    nav.append(InlineKeyboardButton(f"{page+1}/{tp}", callback_data="noop"))
-    if page < tp - 1: nav.append(InlineKeyboardButton("Next ▶", callback_data=f"admin|users|{page+1}"))
-    if nav: rows.append(nav)
-    rows.append([InlineKeyboardButton("🔄 Refresh", callback_data=f"admin|users|{page}"),
-                 InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")])
-    return InlineKeyboardMarkup(rows)
-
-def kb_user_detail(uid_key, page):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔄 Refresh", callback_data=f"admin|user|{uid_key}|{page}")],
-        [InlineKeyboardButton("🔙 Kembali", callback_data=f"admin|users|{page}")]])
-
 def backup_config_text():
     conf = load_backup_conf()
     ght = conf.get("GH_TOKEN", "")
     tok_disp = (ght[:10] + "..." + ght[-4:]) if len(ght) > 20 else "(kosong)"
     status = "✅ Aktif" if all([conf.get("GH_USER"), conf.get("GH_REPO"), conf.get("GH_TOKEN")]) else "❌ Belum diisi"
-    lines = ["<blockquote>", "🔄 <b>PENGATURAN BACKUP GITHUB</b>", "───────────────────────",
+    return "\n".join(["<blockquote>", "🔄 <b>PENGATURAN BACKUP GITHUB</b>", "───────────────────────",
              f"├ Status   : <b>{status}</b>",
              f"├ Username : <code>{conf.get('GH_USER','-')}</code>",
              f"├ Repo     : <code>{conf.get('GH_REPO','-')}</code>",
@@ -759,9 +781,7 @@ def backup_config_text():
              f"╰ Token    : <code>{tok_disp}</code>",
              "───────────────────────",
              "<i>Backup otomatis tiap 5 menit ke repo private.</i>",
-             "<i>Isi 4 field di atas → otomatis aktif.</i>",
-             "</blockquote>"]
-    return "\n".join(lines)
+             "</blockquote>"])
 
 def kb_backup():
     return InlineKeyboardMarkup([
@@ -769,7 +789,7 @@ def kb_backup():
          InlineKeyboardButton("📁 Ganti Repo", callback_data="backup_edit|repo")],
         [InlineKeyboardButton("🔑 Ganti Token", callback_data="backup_edit|token"),
          InlineKeyboardButton("📧 Ganti Email", callback_data="backup_edit|email")],
-        [InlineKeyboardButton("🚀 Push Sekarang", callback_data="backup_push")],
+        [InlineKeyboardButton("🗑️ Reset Backup", callback_data="backup_reset")],
         [InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")]])
 
 def kb_admin():
@@ -785,45 +805,24 @@ def kb_acc_detail(un):
         [InlineKeyboardButton("🗑️ Hapus", callback_data=f"del_acc|{un}")],
         [InlineKeyboardButton("🔙 Kembali", callback_data="my_accs")]])
 
-def dashboard_text(user, uid):
-    uname = f"@{user.username}" if user.username else "-"
-    role = "Owner" if is_owner(uid) else "Member"
-    st = get_stats(uid)
-    total_users = len(load_json(USERS_FILE, {}))
-    lines = ["<blockquote>", "💻 <b>SANSXML VPN STORE</b>", "───────────────────────", "👤 <b>Profil</b>"]
-    lines.append(f"├ User Telegram  : {uname}")
-    lines.append(f"├ Chat ID        : <code>{uid}</code>")
-    lines.append(f"├ Keanggotaan    : {role}")
-    lines.append(f"├ Total Pengguna : <b>{total_users}</b>")
-    lines.append(f"╰ 💰 Saldo VPN  : <b>{rupiah(get_bal(uid))}</b>")
-    lines += ["", "🌍 <b>Info Global</b>"]
-    lines.append(f"├ Minggu Ini     : <b>{st['minggu']} Akun</b>")
-    lines.append(f"├ Bulan Ini      : <b>{st['bulan']} Akun</b>")
-    lines.append(f"╰ Keseluruhan    : <b>{st['total']} Akun</b>")
-    lines += ["", "🌐 <b>Informasi</b>"]
-    lines.append(f"├ Server Tersedia : <b>{len(SERVERS)} Server</b>")
-    lines.append(f"╰ Kuota Trial     : <b>{trial_left(uid)}x Hari</b>")
-    lines += ["", "───────────────────────", "</blockquote>"]
-    return "\n".join(lines)
+def kb_dashboard(uid):
+    rows = [
+        [InlineKeyboardButton("➕ BUAT AKUN", callback_data="buat_akun"),
+         InlineKeyboardButton("⌛ TRIAL AKUN", callback_data="trial_akun")],
+        [InlineKeyboardButton("🔄 PERPANJANG AKUN", callback_data="perpanjang_akun")],
+        [InlineKeyboardButton("💰 TOPUP SALDO", callback_data="isi_saldo"),
+         InlineKeyboardButton("👤 AKUN SAYA", callback_data="my_accs")],
+        [InlineKeyboardButton("♻️ REFRESH", callback_data="refresh")]]
+    if is_owner(uid): rows.append([InlineKeyboardButton("💻 PENGATURAN", callback_data="admin|menu")])
+    return InlineKeyboardMarkup(rows)
 
-def pilih_layanan_text():
-    return ("<blockquote>\n💻 <b>PILIH LAYANAN VPN</b>\n───────────────────────\n"
-            "Silakan pilih protokol yang ingin dibuat:\n───────────────────────\n</blockquote>")
-
-def ssh_server_text():
-    lines = ["<blockquote>", "<b>💻 SSH OVPN</b>", "─────────────────────────", ""]
-    for key, srv in SERVERS.items():
-        used, mx = get_slot_info(key)
-        cek = "✅" if max(0, mx-used) > 0 else "❌"
-        lines.append(f"◆ {srv['name']}")
-        lines.append(f"├ Harga Harian   : <b>{rupiah(srv['price_day'])}</b>")
-        lines.append(f"├ Harga Bulanan  : <b>{rupiah(srv['price_month'])}</b>")
-        lines.append("├ Kuota          : Unlimited")
-        lines.append(f"├ Limit IP       : {srv['ip_limit']} IP")
-        lines.append(f"╰ Slot Tersedia  : <b>{used}/{mx} {cek}</b>")
-        lines.append(""); lines.append("")
-    lines += ["─────────────────────────", "</blockquote>"]
-    return "\n".join(lines)
+def kb_saldo():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("1", callback_data="saldo_num|1"), InlineKeyboardButton("2", callback_data="saldo_num|2"), InlineKeyboardButton("3", callback_data="saldo_num|3")],
+        [InlineKeyboardButton("4", callback_data="saldo_num|4"), InlineKeyboardButton("5", callback_data="saldo_num|5"), InlineKeyboardButton("6", callback_data="saldo_num|6")],
+        [InlineKeyboardButton("7", callback_data="saldo_num|7"), InlineKeyboardButton("8", callback_data="saldo_num|8"), InlineKeyboardButton("9", callback_data="saldo_num|9")],
+        [InlineKeyboardButton("⬅️ Hapus", callback_data="saldo_hapus"), InlineKeyboardButton("0", callback_data="saldo_num|0"), InlineKeyboardButton("✅ Konfirmasi", callback_data="saldo_konfirmasi")],
+        [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]])
 
 def kb_pilih_layanan():
     return InlineKeyboardMarkup([
@@ -868,30 +867,50 @@ def kb_ssh_server_extend():
 
 def kb_coming_soon(p): return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 KEMBALI", callback_data="pilih_layanan")]])
 
-def kb_dashboard(uid):
-    rows = [
-        [InlineKeyboardButton("➕ BUAT AKUN", callback_data="buat_akun"),
-         InlineKeyboardButton("⌛ TRIAL AKUN", callback_data="trial_akun")],
-        [InlineKeyboardButton("🔄 PERPANJANG AKUN", callback_data="perpanjang_akun")],
-        [InlineKeyboardButton("💰 TOPUP SALDO", callback_data="isi_saldo"),
-         InlineKeyboardButton("👤 AKUN SAYA", callback_data="my_accs")],
-        [InlineKeyboardButton("♻️ REFRESH", callback_data="refresh")]]
-    if is_owner(uid): rows.append([InlineKeyboardButton("💻 PENGATURAN", callback_data="admin|menu")])
-    return InlineKeyboardMarkup(rows)
+def dashboard_text(user, uid):
+    uname = f"@{user.username}" if user.username else "-"
+    role = "Owner" if is_owner(uid) else "Member"
+    st = get_stats(uid)
+    total_users = len(load_json(USERS_FILE, {}))
+    lines = ["<blockquote>", "💻 <b>SANSXML VPN STORE</b>", "───────────────────────", "👤 <b>Profil</b>"]
+    lines.append(f"├ User Telegram  : {uname}")
+    lines.append(f"├ Chat ID        : <code>{uid}</code>")
+    lines.append(f"├ Keanggotaan    : {role}")
+    lines.append(f"├ Total Pengguna : <b>{total_users}</b>")
+    lines.append(f"╰ 💰 Saldo VPN  : <b>{rupiah(get_bal(uid))}</b>")
+    lines += ["", "🌍 <b>Info Global</b>"]
+    lines.append(f"├ Minggu Ini     : <b>{st['minggu']} Akun</b>")
+    lines.append(f"├ Bulan Ini      : <b>{st['bulan']} Akun</b>")
+    lines.append(f"╰ Keseluruhan    : <b>{st['total']} Akun</b>")
+    lines += ["", "🌐 <b>Informasi</b>"]
+    lines.append(f"├ Server Tersedia : <b>{len(SERVERS)} Server</b>")
+    lines.append(f"╰ Kuota Trial     : <b>{trial_left(uid)}x Hari</b>")
+    lines += ["", "───────────────────────", "</blockquote>"]
+    return "\n".join(lines)
+
+def pilih_layanan_text():
+    return "<blockquote>\n💻 <b>PILIH LAYANAN VPN</b>\n───────────────────────\nSilakan pilih protokol yang ingin dibuat:\n───────────────────────\n</blockquote>"
+
+def ssh_server_text():
+    lines = ["<blockquote>", "<b>💻 SSH OVPN</b>", "─────────────────────────", ""]
+    for key, srv in SERVERS.items():
+        used, mx = get_slot_info(key)
+        cek = "✅" if max(0, mx-used) > 0 else "❌"
+        lines.append(f"◆ {srv['name']}")
+        lines.append(f"├ Harga Harian   : <b>{rupiah(srv['price_day'])}</b>")
+        lines.append(f"├ Harga Bulanan  : <b>{rupiah(srv['price_month'])}</b>")
+        lines.append("├ Kuota          : Unlimited")
+        lines.append(f"├ Limit IP       : {srv['ip_limit']} IP")
+        lines.append(f"╰ Slot Tersedia  : <b>{used}/{mx} {cek}</b>")
+        lines.append(""); lines.append("")
+    lines += ["─────────────────────────", "</blockquote>"]
+    return "\n".join(lines)
 
 def saldo_text(uid, nominal=""):
     return ("<blockquote>\n💰 <b>Silakan masukkan jumlah nominal topup saldo yang Anda inginkan:</b>\n\n"
             f"Jumlah saat ini: <b>{rupiah(get_bal(uid))}</b>\n\n"
             f"Nominal input: <b>{rupiah(nominal) if nominal else 'Rp 0'}</b>\n\n"
             f"<i>Minimal topup {rupiah(MIN_TOPUP)}</i>\n</blockquote>")
-
-def kb_saldo():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("1", callback_data="saldo_num|1"), InlineKeyboardButton("2", callback_data="saldo_num|2"), InlineKeyboardButton("3", callback_data="saldo_num|3")],
-        [InlineKeyboardButton("4", callback_data="saldo_num|4"), InlineKeyboardButton("5", callback_data="saldo_num|5"), InlineKeyboardButton("6", callback_data="saldo_num|6")],
-        [InlineKeyboardButton("7", callback_data="saldo_num|7"), InlineKeyboardButton("8", callback_data="saldo_num|8"), InlineKeyboardButton("9", callback_data="saldo_num|9")],
-        [InlineKeyboardButton("⬅️ Hapus", callback_data="saldo_hapus"), InlineKeyboardButton("0", callback_data="saldo_num|0"), InlineKeyboardButton("✅ Konfirmasi", callback_data="saldo_konfirmasi")],
-        [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]])
 
 def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server_key="sg_1ip"):
     srv = SERVERS.get(server_key, {})
@@ -900,10 +919,9 @@ def acc_caption(u, p, exp, dl, ip, manual=False, is_trial=False, server_key="sg_
     try:
         exp_d = datetime.strptime(exp,"%Y-%m-%d")
         exp_fmt = f"{exp_d.day} {BULAN_ID[exp_d.month-1]}, {exp_d.year}"
-        now = datetime.now()
         try: days_int = int(dl.split()[0])
         except: days_int = 30
-        created = now - timedelta(days=days_int)
+        created = datetime.now() - timedelta(days=days_int)
         created_fmt = f"{created.day} {BULAN_ID[created.month-1]}, {created.year}"
     except: exp_fmt = exp; created_fmt = "-"
     ssh_ovpn_val = srv.get("ssh_ovpn") or srv.get("name","SG NEWMEDIA").replace("🇸🇬 ","").strip()
@@ -938,17 +956,10 @@ async def do_create_account(chat, uid, user, username, password, hari, is_trial=
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("💰 TOPUP SALDO", callback_data="isi_saldo")],
             [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]])
-        await chat.send_message(
-            f"<blockquote>❌ <b>Saldo Tidak Cukup</b>\n\n"
-            f"💰 Saldo Anda : <b>{rupiah(get_bal(uid))}</b>\n"
-            f"💵 Harga Akun : <b>{rupiah(price)}</b>\n"
-            f"📉 Kurang     : <b>{rupiah(price - get_bal(uid))}</b></blockquote>\n\n"
-            f"Silakan topup saldo melalui menu\nTombol <b>💰 TOPUP SALDO</b>.",
+        await chat.send_message(f"<blockquote>❌ <b>Saldo Tidak Cukup</b>\n\n💰 Saldo: <b>{rupiah(get_bal(uid))}</b>\n💵 Harga: <b>{rupiah(price)}</b>\n📉 Kurang: <b>{rupiah(price - get_bal(uid))}</b></blockquote>",
             reply_markup=kb, parse_mode="HTML")
         return
-    server_num = get_server_slot_number(server_key)
-    load_txt = f"⚙️ Membuat <b>{'TRIAL' if is_trial else 'PREMIUM'} AKUN</b> untuk server <b>{server_num}</b>..."
-    msg = await chat.send_message(load_txt, parse_mode="HTML")
+    msg = await chat.send_message(f"⚙️ Membuat <b>{'TRIAL' if is_trial else 'PREMIUM'} AKUN</b>...", parse_mode="HTML")
     r = await asyncio.to_thread(ssh_create, username, password, hari, is_trial)
     if not is_trial:
         ok, nb = reduce_bal(uid, price)
@@ -973,15 +984,9 @@ async def do_extend_account(chat, uid, user, username, hari, server_key):
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("💰 TOPUP SALDO", callback_data="isi_saldo")],
             [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]])
-        await chat.send_message(
-            f"<blockquote>❌ <b>Saldo Tidak Cukup</b>\n\n"
-            f"💰 Saldo Anda : <b>{rupiah(get_bal(uid))}</b>\n"
-            f"💵 Harga Perpanjang : <b>{rupiah(price)}</b>\n"
-            f"📉 Kurang     : <b>{rupiah(price - get_bal(uid))}</b></blockquote>\n\n"
-            f"Silakan topup saldo melalui menu\nTombol <b>💰 TOPUP SALDO</b>.",
-            reply_markup=kb, parse_mode="HTML")
+        await chat.send_message(f"<blockquote>❌ <b>Saldo Tidak Cukup</b>\n\n💰 Saldo: <b>{rupiah(get_bal(uid))}</b>\n💵 Harga: <b>{rupiah(price)}</b></blockquote>", reply_markup=kb, parse_mode="HTML")
         return
-    msg = await chat.send_message(f"⚙️ Memperpanjang akun <b>{username}</b> selama <b>{hari} hari</b>...", parse_mode="HTML")
+    msg = await chat.send_message(f"⚙️ Memperpanjang <b>{username}</b> selama <b>{hari} hari</b>...", parse_mode="HTML")
     a = get_acc(username)
     try: old_exp = datetime.strptime(a["exp"], "%Y-%m-%d").date()
     except: old_exp = datetime.now().date()
@@ -1042,15 +1047,20 @@ async def auto_cleanup_task():
                         delete_acc_json(un)
                     dele += 1
             if dele > 0: logger.info(f"[AUTO-CLEANUP] {dele} expired")
+
             accs = load_json(ACCOUNTS_FILE, {}); blk = load_json(BLOCK_FILE, {})
             for un, a in accs.items():
                 if a.get("is_trial"): continue
+                if a.get("free_owner"): continue
                 if un in blk: continue
-                limit_ip = int(a.get("limit_ip", 1))
-                over, sessions, ips = await asyncio.to_thread(check_limit, un, limit_ip)
-                if over:
-                    if await asyncio.to_thread(block_user, un, BLOCK_HOURS):
-                        logger.info(f"[BLOCK] {un} - sessions={sessions} ips={len(ips)} > limit={limit_ip}")
+                violation, sessions, cnt = await asyncio.to_thread(check_second_connection, un)
+                if violation:
+                    try:
+                        await asyncio.to_thread(block_user, un, BLOCK_HOURS)
+                        logger.info(f"[BLOCK] {un} - {cnt} session SSH bersamaan")
+                    except Exception as e:
+                        logger.error(f"[BLOCK-ERR] {un}: {e}")
+
             blk = load_json(BLOCK_FILE, {}); changed = False
             for un, info in list(blk.items()):
                 try:
@@ -1110,9 +1120,7 @@ async def cb(u, c):
         saldo_baru = add_bal(uid, nominal)
         add_trx(uid, u.effective_user.first_name or "", u.effective_user.username or "", "isi_saldo", nominal, "topup")
         c.user_data["saldo_input"] = ""
-        try: await q.edit_message_text(
-            f"✅ <b>Topup Saldo Berhasil</b>\n\n<blockquote>💰 Nominal: <b>{rupiah(nominal)}</b>\n💼 Saldo Sekarang: <b>{rupiah(saldo_baru)}</b></blockquote>\n\n"
-            f"<i>❖ Saldo dapat digunakan untuk membuat akun VPN ❖</i>",
+        try: await q.edit_message_text(f"✅ <b>Topup Saldo Berhasil</b>\n\n<blockquote>💰 Nominal: <b>{rupiah(nominal)}</b>\n💼 Saldo Sekarang: <b>{rupiah(saldo_baru)}</b></blockquote>",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]]), parse_mode="HTML")
         except: pass
         return
@@ -1147,7 +1155,7 @@ async def cb(u, c):
                 try: await q.edit_message_text(ssh_server_text(), reply_markup=kb_ssh_server(), parse_mode="HTML")
                 except: pass
         else:
-            try: await q.edit_message_text(f"⚠️ <b>{p.upper()} BELUM TERSEDIA</b>\n\nSegera hadir. Sementara gunakan <b>SSH OVPN</b>.", reply_markup=kb_coming_soon(p), parse_mode="HTML")
+            try: await q.edit_message_text(f"⚠️ <b>{p.upper()} BELUM TERSEDIA</b>", reply_markup=kb_coming_soon(p), parse_mode="HTML")
             except: pass
         return
     if d == "menu|main":
@@ -1161,7 +1169,6 @@ async def cb(u, c):
         try: await q.edit_message_text(backup_config_text(), reply_markup=kb_backup(), parse_mode="HTML")
         except: pass
         return
-
     if d.startswith("backup_edit|"):
         if not is_owner(uid): return
         field = d.split("|")[1]
@@ -1169,30 +1176,52 @@ async def cb(u, c):
         prompts = {
             "user": "Kirim <b>username GitHub</b> baru:\nContoh: <code>accbotvsbot-blip</code>",
             "repo": "Kirim <b>nama repo private</b> baru:\nContoh: <code>VPN-backup-</code>",
-            "token": "Kirim <b>GitHub token</b> baru (format <code>ghp_xxx</code> atau <code>github_pat_xxx</code>):\n\n⚠️ <i>Pesan ini akan dihapus otomatis setelah diterima.</i>",
+            "token": "Kirim <b>GitHub token</b> baru (format <code>ghp_xxx</code> atau <code>github_pat_xxx</code>):\n\n⚠️ <i>Pesan ini akan dihapus otomatis.</i>",
             "email": "Kirim <b>email GitHub</b> baru:\nContoh: <code>user@gmail.com</code>"
         }
+        try: await q.edit_message_text(f"✏️ <b>GANTI {field.upper()}</b>\n\n{prompts.get(field,'')}",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Batal", callback_data="admin|backup")]]),
+            parse_mode="HTML")
+        except: pass
+        return
+    if d == "backup_reset":
+        if not is_owner(uid): return
         try:
             await q.edit_message_text(
-                f"✏️ <b>GANTI {field.upper()}</b>\n\n{prompts.get(field,'')}",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Batal", callback_data="admin|backup")]]),
+                "⚠️ <b>RESET BACKUP</b>\n\n"
+                "<blockquote>"
+                "Yang akan DIHAPUS:\n"
+                "├ Semua file di GitHub repo\n"
+                "├ Config backup lokal\n"
+                "├ Cron auto backup\n"
+                "╰ Folder backup\n\n"
+                "Yang DIPERTAHANKAN:\n"
+                "├ Data user aktif di VPS\n"
+                "╰ Safety backup di /root/vpnbot_safety_*\n"
+                "</blockquote>",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("⚠️ Ya, Reset", callback_data="backup_reset_yes")],
+                    [InlineKeyboardButton("❌ Batal", callback_data="admin|backup")]]),
                 parse_mode="HTML")
         except: pass
         return
-
-    if d == "backup_push":
+    if d == "backup_reset_yes":
         if not is_owner(uid): return
-        try: await q.edit_message_text("⏳ <b>Push backup...</b>", parse_mode="HTML")
+        try: await q.edit_message_text("🗑️ <b>Reset backup...</b>", parse_mode="HTML")
         except: pass
-        try:
-            r = subprocess.run(["bash", "/root/vpnbot_backup.sh"], capture_output=True, text=True, timeout=60)
-            if r.returncode == 0:
-                m = "✅ <b>Backup berhasil di-push!</b>"
-            else:
-                m = f"❌ <b>Gagal</b>\n<code>{(r.stderr or r.stdout)[:300]}</code>"
-        except Exception as e:
-            m = f"❌ Error: <code>{str(e)[:200]}</code>"
-        try: await q.edit_message_text(m + "\n\n" + backup_config_text(), reply_markup=kb_backup(), parse_mode="HTML")
+        ok, info = await asyncio.to_thread(reset_backup_env)
+        if ok:
+            m = (f"✅ <b>Reset berhasil!</b>\n\n"
+                 f"<blockquote>"
+                 f"├ GitHub repo : <b>dibersihkan</b>\n"
+                 f"├ Config lokal : <b>dihapus</b>\n"
+                 f"├ Cron : <b>dimatikan</b>\n"
+                 f"╰ Safety backup : <code>{info}</code>\n"
+                 f"</blockquote>\n\n"
+                 f"<i>Isi ulang 4 field di atas untuk setup fresh.</i>")
+        else:
+            m = f"❌ <b>Gagal</b>\n<code>{info[:200]}</code>"
+        try: await q.edit_message_text(m, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")]]), parse_mode="HTML")
         except: pass
         return
 
@@ -1201,8 +1230,7 @@ async def cb(u, c):
         server_key = d.split("|")[1]
         if server_key not in SERVERS:
             await chat.send_message("❌ Server tidak valid.", parse_mode="HTML"); return
-        try:
-            await q.edit_message_reply_markup(reply_markup=kb_ssh_server_locked())
+        try: await q.edit_message_reply_markup(reply_markup=kb_ssh_server_locked())
         except: pass
         c.user_data["extend_step"] = "username"
         c.user_data["extend_data"] = {"server_key": server_key}
@@ -1216,14 +1244,13 @@ async def cb(u, c):
             await chat.send_message("❌ Server tidak valid.", parse_mode="HTML"); return
         used, mx = get_slot_info(server_key)
         if used >= mx:
-            await chat.send_message(f"<blockquote>❌ <b>Slot Penuh</b>\n\nServer <b>{SERVERS[server_key]['name']}</b>\nSlot tersedia: <b>{used}/{mx}</b></blockquote>", parse_mode="HTML"); return
+            await chat.send_message(f"<blockquote>❌ <b>Slot Penuh</b>\nSlot: <b>{used}/{mx}</b></blockquote>", parse_mode="HTML"); return
         mode = c.user_data.get("mode", "buat")
-        try:
-            await q.edit_message_reply_markup(reply_markup=kb_ssh_server_locked())
+        try: await q.edit_message_reply_markup(reply_markup=kb_ssh_server_locked())
         except: pass
         if mode == "trial":
             if trial_left(uid) <= 0:
-                await chat.send_message("🚫 <b>Batas trial hari ini telah tercapai.</b>\nSilakan coba lagi besok.", parse_mode="HTML"); return
+                await chat.send_message("🚫 <b>Batas trial hari ini telah tercapai.</b>", parse_mode="HTML"); return
             use_trial(uid)
             uniq = ''.join(random.choices(string.ascii_lowercase + string.digits, k=4))
             c.user_data.clear()
@@ -1245,16 +1272,9 @@ async def cb(u, c):
                 if (ed - datetime.now().date()).days < 0: continue
             except: continue
             accs.append(a)
-        def _srt(x):
-            try:
-                ed = datetime.strptime(x["exp"], "%Y-%m-%d").date()
-                return (not x.get("is_trial", False), x.get("created_at",""))
-            except:
-                return (False, "")
-        accs.sort(key=_srt, reverse=True)
         hdr = ["<blockquote>", "💻 <b>AKUN SAYA</b>", "───────────────────────", "",
                f"📭 Akun Aktif : <b>{len(accs)}</b>", ""]
-        if not accs: hdr += ["Belum ada akun aktif.", "Silakan buat akun terlebih dahulu.", ""]
+        if not accs: hdr += ["Belum ada akun aktif.", ""]
         hdr += ["───────────────────────", "</blockquote>"]
         if not accs:
             rows = [[InlineKeyboardButton("➕ BUAT AKUN", callback_data="buat_akun")],
@@ -1264,10 +1284,7 @@ async def cb(u, c):
             for a in accs[:20]:
                 un = a.get("username","")
                 b = get_block_info(un)
-                if b:
-                    label = f"🚫 {un} (DIBLOKIR)"
-                else:
-                    label = f"👤 {un}"
+                label = f"🚫 {un} (DIBLOKIR)" if b else f"👤 {un}"
                 rows.append([InlineKeyboardButton(label, callback_data=f"acc_detail|{un}")])
             rows.append([InlineKeyboardButton("🔙 KEMBALI", callback_data="menu|main")])
         try: await q.edit_message_text("\n".join(hdr), reply_markup=InlineKeyboardMarkup(rows), parse_mode="HTML")
@@ -1288,7 +1305,7 @@ async def cb(u, c):
             try:
                 ua = datetime.strptime(b["unblock_at"], "%Y-%m-%d %H:%M:%S")
                 total_min = max(0, int((ua - datetime.now()).total_seconds() // 60))
-                cap += f"\n\n🚫 <b>AKUN SEDANG DIBLOKIR</b>\n├ Alasan: Melebihi limit IP\n╰ Terbuka otomatis dalam: <b>{total_min//60}j {total_min%60}m</b>"
+                cap += f"\n\n🚫 <b>AKUN DIBLOKIR</b>\n├ Alasan: Multi-login\n╰ Terbuka: <b>{total_min//60}j {total_min%60}m</b>"
             except: pass
         else:
             if ref > 0: cap += f"\n\n💰 <b>Refund: {rupiah(ref)}</b>\n<i>({sh}/{th} hari)</i>"
@@ -1309,13 +1326,10 @@ async def cb(u, c):
         except: pass
         sb = get_bal(uid)
         if ref > 0:
-            try: await chat.send_message(
-                f"✅ <b>Akun Dihapus</b>\n\n<blockquote>👤 <b>Akun</b>\n├ User: <code>{un}</code>\n├ Server: <b>{a.get('server','SG').replace('🇸🇬 ','').strip()}</b>\n├ Durasi: <b>{th} Hari</b>\n╰ Harga: <b>{rupiah(ha)}</b></blockquote>\n"
-                f"<blockquote>💰 <b>Refund</b>\n├ Sisa: <b>{sh}/{th} hari</b>\n├ Persen: <b>{int(round(sh/th*100)) if th>0 else 0}%</b>\n╰ Refund: <b>{rupiah(ref)}</b></blockquote>\n"
-                f"<blockquote>💼 Saldo: <b>{rupiah(sb)}</b></blockquote>\n\n<i>❖ Refund masuk ke saldo ❖</i>", parse_mode="HTML")
+            try: await chat.send_message(f"✅ <b>Akun Dihapus</b>\n\n👤 <code>{un}</code>\n💰 Refund: <b>{rupiah(ref)}</b>\n💼 Saldo: <b>{rupiah(sb)}</b>", parse_mode="HTML")
             except: pass
         else:
-            try: await chat.send_message(f"✅ <b>Akun Dihapus</b>\n\n👤 <code>{un}</code>\n💰 Refund: <b>Rp 0</b>", parse_mode="HTML")
+            try: await chat.send_message(f"✅ <b>Akun Dihapus</b>\n\n👤 <code>{un}</code>", parse_mode="HTML")
             except: pass
         return
 
@@ -1324,12 +1338,8 @@ async def cb(u, c):
         inc = get_income(); us = count_users_by_period()
         svr_stat = get_server_status()
         svr_txt = "\n".join([f"├ {s['name']}\n│ ├ Slot   : <b>{s['used']}/{s['max']}</b>\n│ ╰ Status : <b>{s['status']}</b>" for s in svr_stat])
-        txt = (
-            "<blockquote>"
-            "<b>PENGATURAN VPS BOT VPN</b>\n"
-            "───────────────────────\n"
-            f"👥 Total User : <b>{us['total']}</b>\n"
-            f"   Total Akun : <b>{count_accounts()}</b>\n\n"
+        txt = ("<blockquote><b>PENGATURAN VPS BOT VPN</b>\n───────────────────────\n"
+            f"👥 Total User : <b>{us['total']}</b>\n   Total Akun : <b>{count_accounts()}</b>\n\n"
             "📈 <b>PENGHASILAN</b>\n"
             f"├ Hari Ini   : <b>{rupiah(inc['hari'])}</b>\n"
             f"├ Minggu Ini : <b>{rupiah(inc['minggu'])}</b>\n"
@@ -1341,9 +1351,7 @@ async def cb(u, c):
             f"├ Bulan Ini  : <b>{us['bulan']}</b>\n"
             f"└ Total      : <b>{us['total']}</b>\n\n"
             "📡 <b>STATUS VPS SG</b>\n"
-            f"{svr_txt}\n"
-            "───────────────────────\n"
-            "</blockquote>")
+            f"{svr_txt}\n───────────────────────\n</blockquote>")
         try: await q.edit_message_text(txt, reply_markup=kb_admin(), parse_mode="HTML")
         except: pass
         return
@@ -1352,104 +1360,120 @@ async def cb(u, c):
         if not is_owner(uid): return
         try: page = int(d.split("|")[2])
         except: page = 0
-        try:
-            txt, chunk, page, tp, total = list_users_paged(page)
-            await q.edit_message_text(txt, reply_markup=kb_user_list(chunk, page, tp), parse_mode="HTML")
-        except Exception as e: logger.error(f"users list: {e}")
-        return
-    if d.startswith("admin|user|"):
-        if not is_owner(uid): return
-        parts = d.split("|")
-        if len(parts) < 4: return
-        target_uid = parts[2]
-        try: page = int(parts[3])
-        except: page = 0
-        try:
-            txt = user_detail_text(target_uid)
-            await q.edit_message_text(txt, reply_markup=kb_user_detail(target_uid, page), parse_mode="HTML")
-        except Exception as e: logger.error(f"user detail: {e}")
+        users = load_json(USERS_FILE, {})
+        keys = [k for k in users.keys() if int(k) not in ADMIN_IDS]
+        keys.sort(key=lambda k: users[k].get("last_seen",""), reverse=True)
+        total = len(keys)
+        per = 10
+        tp = max(1, (total + per - 1) // per)
+        page = max(0, min(page, tp - 1))
+        chunk = keys[page*per:(page+1)*per]
+        lines = ["<blockquote>", "👤 <b>DAFTAR PENGGUNA</b>", "──────────────────────", f"👥 Total: <b>{total}</b>", ""]
+        for i, k in enumerate(chunk, start=page*per+1):
+            lines.append(f"{i}. 👤 {users[k].get('first_name') or '-'}")
+        lines += ["", "──────────────────────", f"Hal {page+1}/{tp}", "──────────────────────", "</blockquote>"]
+        rows = []
+        for k in chunk:
+            n = users.get(k, {}).get("first_name") or "-"
+            rows.append([InlineKeyboardButton(f"👤 {n}", callback_data=f"admin|user|{k}|{page}")])
+        nav = []
+        if page > 0: nav.append(InlineKeyboardButton("◀ Prev", callback_data=f"admin|users|{page-1}"))
+        nav.append(InlineKeyboardButton(f"{page+1}/{tp}", callback_data="noop"))
+        if page < tp - 1: nav.append(InlineKeyboardButton("Next ▶", callback_data=f"admin|users|{page+1}"))
+        if nav: rows.append(nav)
+        rows.append([InlineKeyboardButton("🔄 Refresh", callback_data=f"admin|users|{page}"),
+                     InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")])
+        try: await q.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(rows), parse_mode="HTML")
+        except: pass
         return
 
     if d == "admin|srv":
         if not is_owner(uid): return
-        try: await q.edit_message_text(server_list_text(), reply_markup=kb_server_list(), parse_mode="HTML")
+        lines = ["<blockquote>", "💻 <b>KELOLA SERVER</b>", "───────────────────────", ""]
+        for key, srv in SERVERS.items():
+            lines.append(f"<b>{srv.get('name','-')}</b>")
+            lines.append(f"├ Harga Harian  : <b>{rupiah(srv.get('price_day',0))}</b>")
+            lines.append(f"├ Harga Bulanan : <b>{rupiah(srv.get('price_month',0))}</b>")
+            lines.append(f"├ Limit IP      : <b>{srv.get('ip_limit',1)} IP</b>")
+            lines.append(f"╰ Slot Server  : <b>{srv.get('slot_max',50)}</b>")
+            lines.append("")
+        lines.append("───────────────────────"); lines.append("</blockquote>")
+        rows = []; keys = list(SERVERS.keys())
+        for i in range(0, len(keys), 2):
+            row = []
+            for j in range(i, min(i+2, len(keys))):
+                k = keys[j]
+                row.append(InlineKeyboardButton(SERVERS[k].get('name','-'), callback_data=f"srv_edit|{k}"))
+            rows.append(row)
+        rows.append([InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")])
+        try: await q.edit_message_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(rows), parse_mode="HTML")
         except: pass
         return
+
     if d.startswith("srv_edit|"):
         if not is_owner(uid): return
         key = d.split("|")[1]
-        if key not in SERVERS:
-            await q.answer("Server tidak ditemukan", show_alert=True); return
+        if key not in SERVERS: await q.answer("Server tidak ditemukan", show_alert=True); return
         srv = SERVERS[key]
-        txt = (
-            f"<blockquote><b>{srv.get('name','-')}</b>\n───────────────────────\n"
+        txt = (f"<blockquote><b>{srv.get('name','-')}</b>\n───────────────────────\n"
             f"├ Harga Harian  : <b>{rupiah(srv.get('price_day',0))}</b>\n"
             f"├ Harga Bulanan : <b>{rupiah(srv.get('price_month',0))}</b>\n"
             f"├ Limit IP      : <b>{srv.get('ip_limit',1)} IP</b>\n"
             f"├ Slot Server  : <b>{srv.get('slot_max',50)}</b>\n"
-            f"╰ Domain       : <b>{srv.get('domain','-')}</b>\n\n"
-            f"Pilih yang ingin diubah:\n───────────────────────\n</blockquote>")
-        try: await q.edit_message_text(txt, reply_markup=kb_srv_field(key), parse_mode="HTML")
+            f"╰ Domain       : <b>{srv.get('domain','-')}</b>\n</blockquote>")
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Nama Server", callback_data=f"srv_set|{key}|name"),
+             InlineKeyboardButton("Harga Bulanan", callback_data=f"srv_set|{key}|price_month")],
+            [InlineKeyboardButton("Limit IP", callback_data=f"srv_set|{key}|ip_limit"),
+             InlineKeyboardButton("Slot Server", callback_data=f"srv_set|{key}|slot_max")],
+            [InlineKeyboardButton("Domain Server", callback_data=f"srv_set|{key}|domain")],
+            [InlineKeyboardButton("🔙 Kembali", callback_data="admin|srv")]])
+        try: await q.edit_message_text(txt, reply_markup=kb, parse_mode="HTML")
         except: pass
         return
+
     if d.startswith("srv_set|"):
         if not is_owner(uid): return
         parts = d.split("|")
         if len(parts) < 3: return
         key = parts[1]; field = parts[2]
-        if key not in SERVERS:
-            await q.answer("Server tidak ditemukan", show_alert=True); return
+        if key not in SERVERS: await q.answer("Server tidak ditemukan", show_alert=True); return
         c.user_data["srv_edit"] = {"key": key, "field": field}
-        if field == "name":
-            prompt = f"Kirim nama baru untuk server <b>{SERVERS[key].get('name','-')}</b>\nContoh: <code>🇸🇬 PRIME SG-01</code>"
-        elif field == "price_month":
-            prompt = f"Kirim harga BULANAN (30 hari) baru untuk <b>{SERVERS[key].get('name','-')}</b>\nContoh: <code>3510</code>\n<i>Harga harian otomatis = harga bulanan ÷ 30</i>"
-        elif field == "ip_limit":
-            prompt = f"Kirim limit IP baru untuk <b>{SERVERS[key].get('name','-')}</b>\nContoh: <code>2</code>"
-        elif field == "slot_max":
-            prompt = f"Kirim jumlah slot server baru untuk <b>{SERVERS[key].get('name','-')}</b>\nContoh: <code>50</code>"
-        elif field == "domain":
-            prompt = f"Kirim DOMAIN baru untuk <b>{SERVERS[key].get('name','-')}</b>\nContoh: <code>sgivip.naaofficial.web.id</code>\nAtau IP VPS: <code>103.150.100.50</code>\n\n<i>Bot akan cek domain ke DNS & cocokkan dengan IP VPS.</i>"
-        try: await q.edit_message_text(prompt, reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Batal", callback_data=f"srv_edit|{key}")]]), parse_mode="HTML")
+        prompts = {
+            "name": "Kirim nama baru. Contoh: <code>🇸🇬 PRIME SG-01</code>",
+            "price_month": "Kirim harga BULANAN baru. Contoh: <code>3510</code>",
+            "ip_limit": "Kirim limit IP baru. Contoh: <code>2</code>",
+            "slot_max": "Kirim jumlah slot baru. Contoh: <code>50</code>",
+            "domain": "Kirim DOMAIN baru. Contoh: <code>sgivip.naaofficial.web.id</code>"
+        }
+        try: await q.edit_message_text(prompts.get(field, "Kirim nilai baru:"), reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Batal", callback_data=f"srv_edit|{key}")]]), parse_mode="HTML")
         except: pass
         return
 
     if d == "admin|bc":
         if not is_owner(uid): return
         c.user_data["bc_wait"] = True
-        try: await q.edit_message_text(
-            "📢 <b>BROADCAST PENGUMUMAN</b>\n\n"
-            "Silakan ketik pesan pengumuman yang ingin dikirim ke semua user.\n\n"
-            "<i>Pesan akan dikirim ke seluruh user bot (kecuali yang memblokir bot).</i>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Batal", callback_data="admin|menu")]]),
-            parse_mode="HTML")
+        try: await q.edit_message_text("📢 <b>BROADCAST</b>\n\nKetik pesan:",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Batal", callback_data="admin|menu")]]), parse_mode="HTML")
         except: pass
         return
     if d == "bc_send":
         if not is_owner(uid): return
         msg_text = c.user_data.get("bc_text", "")
-        if not msg_text:
-            await q.answer("Pesan kosong!", show_alert=True); return
-        try: await q.edit_message_text("📤 <b>Mengirim broadcast...</b>", parse_mode="HTML")
+        if not msg_text: await q.answer("Pesan kosong!", show_alert=True); return
+        try: await q.edit_message_text("📤 Mengirim...", parse_mode="HTML")
         except: pass
         users = load_json(USERS_FILE, {})
-        ok_count = 0; fail_count = 0
+        ok_c = 0; fail_c = 0
         for tuid in users.keys():
             try:
                 await c.bot.send_message(chat_id=int(tuid), text=msg_text, parse_mode="HTML")
-                ok_count += 1
-            except Exception: fail_count += 1
+                ok_c += 1
+            except Exception: fail_c += 1
             await asyncio.sleep(0.05)
-        c.user_data["bc_text"] = ""
-        c.user_data["bc_wait"] = False
-        try: await q.edit_message_text(
-            f"✅ <b>Broadcast Selesai</b>\n\n<blockquote>"
-            f"├ Sukses : <b>{ok_count}</b>\n"
-            f"╰ Gagal  : <b>{fail_count}</b>\n"
-            f"</blockquote>\n\n"
-            f"<i>❖ Pesan berhasil dikirim ke user yang tidak memblokir bot ❖</i>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")]]),
-            parse_mode="HTML")
+        c.user_data["bc_text"] = ""; c.user_data["bc_wait"] = False
+        try: await q.edit_message_text(f"✅ <b>Selesai</b>\n\n├ Sukses: <b>{ok_c}</b>\n╰ Gagal: <b>{fail_c}</b>",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")]]), parse_mode="HTML")
         except: pass
         return
 
@@ -1467,7 +1491,7 @@ async def msg(u, c):
         conf = load_backup_conf()
         err = None
         if backup_field == "user":
-            if not re.match(r'^[a-zA-Z0-9-]+$', t): err = "Username hanya huruf, angka, dan tanda strip"
+            if not re.match(r'^[a-zA-Z0-9-]+$', t): err = "Username tidak valid"
             else: conf["GH_USER"] = t
         elif backup_field == "repo":
             if not re.match(r'^[a-zA-Z0-9._-]+$', t): err = "Nama repo tidak valid"
@@ -1486,15 +1510,27 @@ async def msg(u, c):
         save_backup_conf(conf["GH_USER"], conf["GH_REPO"], conf["GH_TOKEN"], conf["GH_EMAIL"])
         all_ok = all([conf["GH_USER"], conf["GH_REPO"], conf["GH_TOKEN"], conf["GH_EMAIL"]])
         if all_ok:
-            setup_ok = setup_backup_env(conf["GH_USER"], conf["GH_REPO"], conf["GH_TOKEN"], conf["GH_EMAIL"])
-            setup_msg = "\n✅ <b>Auto backup aktif</b> (setiap 5 menit)\n✅ <b>Backup pertama berhasil dikirim</b>\n" if setup_ok else "\n⚠️ <i>Gagal setup auto backup</i>\n"
-            await u.message.reply_text(
-                f"✅ <b>Disimpan!</b>\n{setup_msg}\n" + backup_config_text(),
-                reply_markup=kb_backup(), parse_mode="HTML")
+            notify = await u.message.reply_text("⏳ <b>Pull dari GitHub & restore...</b>", parse_mode="HTML")
+            ok, info = await asyncio.to_thread(setup_backup_env, conf["GH_USER"], conf["GH_REPO"], conf["GH_TOKEN"], conf["GH_EMAIL"])
+            if ok:
+                ccount, scount = await asyncio.to_thread(restore_ssh_users_from_json)
+                try: await notify.delete()
+                except: pass
+                await u.message.reply_text(
+                    f"✅ <b>Disimpan!</b>\n\n"
+                    f"<blockquote>"
+                    f"✅ Auto backup aktif (5 menit)\n"
+                    f"✅ File JSON direstore : <b>{info}</b>\n"
+                    f"✅ User OS dibuat ulang : <b>{ccount}</b>\n"
+                    f"╰ Skip : <b>{scount}</b>\n"
+                    f"</blockquote>\n\n" + backup_config_text(),
+                    reply_markup=kb_backup(), parse_mode="HTML")
+            else:
+                try: await notify.delete()
+                except: pass
+                await u.message.reply_text(f"❌ <b>Gagal</b>\n<code>{info[:200]}</code>", reply_markup=kb_backup(), parse_mode="HTML")
         else:
-            await u.message.reply_text(
-                f"✅ <b>Disimpan!</b>\n\n" + backup_config_text(),
-                reply_markup=kb_backup(), parse_mode="HTML")
+            await u.message.reply_text(f"✅ <b>Disimpan!</b>\n\n" + backup_config_text(), reply_markup=kb_backup(), parse_mode="HTML")
         return
 
     srv_edit = c.user_data.get("srv_edit")
@@ -1507,76 +1543,43 @@ async def msg(u, c):
         srv = SERVERS[key]
         try:
             if field == "name":
-                if len(val) < 3:
-                    await u.message.reply_text("❌ Nama minimal 3 karakter. Coba lagi:", parse_mode="HTML"); return
-                srv["name"] = val
-                msg_out = f"Nama server diubah → <b>{val}</b>"
+                if len(val) < 3: await u.message.reply_text("❌ Nama minimal 3 karakter.", parse_mode="HTML"); return
+                srv["name"] = val; msg_out = f"Nama → <b>{val}</b>"
             elif field == "price_month":
                 angka = int(re.sub(r'[^0-9]','',val))
-                if angka <= 0:
-                    await u.message.reply_text("❌ Angka tidak valid. Coba lagi:", parse_mode="HTML"); return
-                srv["price_month"] = angka
-                srv["price_day"] = max(1, int(round(angka / 30)))
-                msg_out = (f"Harga bulanan → <b>{rupiah(angka)}</b>\n"
-                           f"Harga harian otomatis → <b>{rupiah(srv['price_day'])}</b>")
+                if angka <= 0: await u.message.reply_text("❌ Angka tidak valid.", parse_mode="HTML"); return
+                srv["price_month"] = angka; srv["price_day"] = max(1, int(round(angka / 30)))
+                msg_out = f"Bulanan → <b>{rupiah(angka)}</b>"
             elif field == "ip_limit":
                 angka = int(re.sub(r'[^0-9]','',val))
-                if angka <= 0:
-                    await u.message.reply_text("❌ Angka tidak valid. Coba lagi:", parse_mode="HTML"); return
-                srv["ip_limit"] = angka
-                msg_out = f"Limit IP → <b>{angka} IP</b>"
+                if angka <= 0: await u.message.reply_text("❌ Angka tidak valid.", parse_mode="HTML"); return
+                srv["ip_limit"] = angka; msg_out = f"Limit IP → <b>{angka}</b>"
             elif field == "slot_max":
                 angka = int(re.sub(r'[^0-9]','',val))
-                if angka <= 0:
-                    await u.message.reply_text("❌ Angka tidak valid. Coba lagi:", parse_mode="HTML"); return
-                srv["slot_max"] = angka
-                msg_out = f"Slot Server → <b>{angka}</b>"
+                if angka <= 0: await u.message.reply_text("❌ Angka tidak valid.", parse_mode="HTML"); return
+                srv["slot_max"] = angka; msg_out = f"Slot → <b>{angka}</b>"
             elif field == "domain":
-                cek_msg = await u.message.reply_text("⏳ Mengecek domain...")
+                cek_msg = await u.message.reply_text("⏳ Cek domain...")
                 ok_dom, tipe_dom, resolved_ip = is_valid_domain(val)
                 try: await cek_msg.delete()
                 except: pass
                 if not ok_dom:
-                    await u.message.reply_text(
-                        f"❌ <b>Domain Tidak Valid</b>\n\n"
-                        f"Alasan: {tipe_dom}\n\n"
-                        f"Contoh yang valid:\n"
-                        f"├ <code>sgivip.naaofficial.web.id</code>\n"
-                        f"├ <code>sg1.premium.com</code>\n"
-                        f"╰ <code>103.150.100.50</code>\n\n"
-                        f"Coba kirim ulang:",
-                        parse_mode="HTML")
-                    return
-                srv["domain"] = val
-                msg_out = f"Domain ({tipe_dom}) → <b>{val}</b>"
+                    await u.message.reply_text(f"❌ <b>Domain Invalid</b>\n{tipe_dom}\n\nCoba lagi:", parse_mode="HTML"); return
+                srv["domain"] = val; msg_out = f"Domain → <b>{val}</b>"
             else:
                 c.user_data["srv_edit"] = None
                 await u.message.reply_text("❌ Field tidak valid.", parse_mode="HTML"); return
-            save_servers()
-            c.user_data["srv_edit"] = None
-            await u.message.reply_text(
-                f"<blockquote>{msg_out}\n\n"
-                f"<b>Data Server Sekarang:</b>\n"
-                f"├ Nama : <b>{srv.get('name','-')}</b>\n"
-                f"├ Harga Harian : <b>{rupiah(srv.get('price_day',0))}</b>\n"
-                f"├ Harga Bulanan : <b>{rupiah(srv.get('price_month',0))}</b>\n"
-                f"├ Limit IP : <b>{srv.get('ip_limit',1)} IP</b>\n"
-                f"├ Slot Server : <b>{srv.get('slot_max',50)}</b>\n"
-                f"╰ Domain : <b>{srv.get('domain','-')}</b></blockquote>",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali ke Kelola", callback_data="admin|srv")]]),
-                parse_mode="HTML")
+            save_servers(); c.user_data["srv_edit"] = None
+            await u.message.reply_text(f"✅ {msg_out}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Kembali", callback_data="admin|srv")]]), parse_mode="HTML")
             return
         except Exception as e:
-            await u.message.reply_text(f"❌ Error: {e}\nCoba lagi:", parse_mode="HTML"); return
+            await u.message.reply_text(f"❌ Error: {e}", parse_mode="HTML"); return
 
     if c.user_data.get("bc_wait") and is_owner(uid):
         c.user_data["bc_wait"] = False
         c.user_data["bc_text"] = t
-        preview = ("📢 <b>PREVIEW BROADCAST</b>\n\n<blockquote>" + t + "</blockquote>\n\nKirim pesan ini ke semua user?")
-        await u.message.reply_text(preview,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ Kirim", callback_data="bc_send")],
-                [InlineKeyboardButton("❌ Batal", callback_data="admin|menu")]]),
+        await u.message.reply_text(f"📢 <b>PREVIEW</b>\n\n<blockquote>{t}</blockquote>\n\nKirim ke semua?",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Kirim", callback_data="bc_send")],[InlineKeyboardButton("❌ Batal", callback_data="admin|menu")]]),
             parse_mode="HTML")
         return
 
@@ -1585,46 +1588,32 @@ async def msg(u, c):
         data = c.user_data.get("buat_data",{})
         if step == "username":
             if not valid_username(t):
-                await u.message.reply_text("🚫 <b>Username minimal 5 angka !!</b>", parse_mode="HTML")
-                await u.message.reply_text("👤 Masukkan username akun :", parse_mode="HTML")
-                return
+                await u.message.reply_text("🚫 <b>Username minimal 5 karakter</b>", parse_mode="HTML")
+                await u.message.reply_text("👤 Masukkan username akun :", parse_mode="HTML"); return
             if is_username_taken(t):
-                await u.message.reply_text(f"🚫 <b>Username {t} sudah ada !!</b>", parse_mode="HTML")
-                await u.message.reply_text("👤 Masukkan username akun :", parse_mode="HTML")
-                return
+                await u.message.reply_text(f"🚫 <b>Username {t} sudah ada</b>", parse_mode="HTML")
+                await u.message.reply_text("👤 Masukkan username akun :", parse_mode="HTML"); return
             data["username"] = t; c.user_data["buat_data"] = data; c.user_data["buat_step"] = "password"
             await u.message.reply_text("🔑 Masukkan password akun :", parse_mode="HTML"); return
         if step == "password":
             if not valid_password(t):
-                await u.message.reply_text("🚫 <b>Password minimal 5 angka !!</b>", parse_mode="HTML")
-                await u.message.reply_text("🔑 Masukkan password akun :", parse_mode="HTML")
-                return
+                await u.message.reply_text("🚫 <b>Password minimal 5 karakter</b>", parse_mode="HTML")
+                await u.message.reply_text("🔑 Masukkan password akun :", parse_mode="HTML"); return
             data["password"] = t; c.user_data["buat_data"] = data; c.user_data["buat_step"] = "durasi"
-            await u.message.reply_text("📆 Masukkan masa aktif 1-30 (hari) :", parse_mode="HTML"); return
+            await u.message.reply_text("📆 Masukkan masa aktif 1-365 (hari) :", parse_mode="HTML"); return
         if step == "durasi":
             try: hari = int(re.sub(r'[^0-9]','',t))
             except:
-                await u.message.reply_text("🚫 <b>Masa aktif tidak valid.</b>\n📅 <b>Masukkan 1–30 hari Contoh : 3</b>", parse_mode="HTML")
-                await u.message.reply_text("📆 Masukkan masa aktif 1-30 (hari) :", parse_mode="HTML")
-                return
+                await u.message.reply_text("🚫 <b>Masa aktif tidak valid.</b>\nMasukkan 1-365 hari :", parse_mode="HTML"); return
             if not (HARI_MIN <= hari <= HARI_MAX):
-                await u.message.reply_text("🚫 <b>Masa aktif tidak valid.</b>\n📅 <b>Masukkan 1–30 hari Contoh : 3</b>", parse_mode="HTML")
-                await u.message.reply_text("📆 Masukkan masa aktif 1-30 (hari) :", parse_mode="HTML")
-                return
+                await u.message.reply_text("🚫 <b>Masa aktif tidak valid.</b>\nMasukkan 1-365 hari :", parse_mode="HTML"); return
             un = data.get("username"); pw = data.get("password")
             server_key = data.get("server_key", "sg_1ip")
             price = get_price(hari, server_key)
             c.user_data["buat_step"] = None; c.user_data["buat_data"] = {}
             if get_bal(uid) < price:
-                kb = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("💰 TOPUP SALDO", callback_data="isi_saldo")],
-                    [InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]])
-                await u.message.reply_text(
-                    f"<blockquote>❌ <b>Saldo Tidak Cukup</b>\n\n"
-                    f"💰 Saldo Anda : <b>{rupiah(get_bal(uid))}</b>\n"
-                    f"💵 Harga Akun : <b>{rupiah(price)}</b>\n"
-                    f"📉 Kurang     : <b>{rupiah(price - get_bal(uid))}</b></blockquote>\n\n"
-                    f"Silakan topup saldo melalui menu\nTombol <b>💰 TOPUP SALDO</b>.",
+                kb = InlineKeyboardMarkup([[InlineKeyboardButton("💰 TOPUP SALDO", callback_data="isi_saldo")],[InlineKeyboardButton("🔙 Kembali", callback_data="menu|main")]])
+                await u.message.reply_text(f"<blockquote>❌ <b>Saldo Tidak Cukup</b>\n\n💰 Saldo: <b>{rupiah(get_bal(uid))}</b>\n💵 Harga: <b>{rupiah(price)}</b>\n📉 Kurang: <b>{rupiah(price - get_bal(uid))}</b></blockquote>",
                     reply_markup=kb, parse_mode="HTML"); return
             c.user_data["created_in_session"] = True
             await do_create_account(u.effective_chat, uid, u.effective_user, un, pw, hari, server_key=server_key)
@@ -1637,41 +1626,31 @@ async def msg(u, c):
         if estep == "username":
             if not is_username_taken(t):
                 await u.message.reply_text("🚫 <b>Akun tidak ditemukan.</b>", parse_mode="HTML")
-                await u.message.reply_text("👤 Masukkan username akun :", parse_mode="HTML")
-                return
+                await u.message.reply_text("👤 Masukkan username akun :", parse_mode="HTML"); return
             a = get_acc(t)
             if not a or a.get("user_id") != uid:
                 await u.message.reply_text("🚫 <b>Bukan akun Anda.</b>", parse_mode="HTML")
-                await u.message.reply_text("👤 Masukkan username akun :", parse_mode="HTML")
-                return
+                await u.message.reply_text("👤 Masukkan username akun :", parse_mode="HTML"); return
             if a.get("is_trial"):
                 await u.message.reply_text("🚫 <b>Akun trial tidak bisa diperpanjang.</b>", parse_mode="HTML")
-                await u.message.reply_text("👤 Masukkan username akun :", parse_mode="HTML")
-                return
+                await u.message.reply_text("👤 Masukkan username akun :", parse_mode="HTML"); return
             data["username"] = t; c.user_data["extend_data"] = data; c.user_data["extend_step"] = "password"
             await u.message.reply_text("🔑 Masukkan password akun :", parse_mode="HTML"); return
         if estep == "password":
             a = get_acc(data.get("username"))
             if not a or a.get("password") != t:
                 await u.message.reply_text("🚫 <b>Password salah.</b>", parse_mode="HTML")
-                await u.message.reply_text("🔑 Masukkan password akun :", parse_mode="HTML")
-                return
+                await u.message.reply_text("🔑 Masukkan password akun :", parse_mode="HTML"); return
             c.user_data["extend_step"] = "durasi"
-            try:
-                sh = max(0, (datetime.strptime(a["exp"], "%Y-%m-%d").date() - datetime.now().date()).days)
-                sisa_txt = f"\n<i>Sisa masa aktif: {sh} hari</i>"
-            except: sisa_txt = ""
-            await u.message.reply_text(f"📆 <b>Masukkan masa aktif tambahan 1-30 (hari) :</b>{sisa_txt}", parse_mode="HTML"); return
+            await u.message.reply_text("📆 Masukkan masa aktif tambahan 1-365 (hari) :", parse_mode="HTML"); return
         if estep == "durasi":
             try: hari = int(re.sub(r'[^0-9]','',t))
             except:
-                await u.message.reply_text("🚫 <b>Masa aktif tidak valid.</b>\n📅 <b>Masukkan 1–30 hari Contoh : 3</b>", parse_mode="HTML")
-                await u.message.reply_text("📆 Masukkan masa aktif 1-30 (hari) :", parse_mode="HTML")
-                return
+                await u.message.reply_text("🚫 <b>Masa aktif tidak valid.</b>", parse_mode="HTML")
+                await u.message.reply_text("📆 Masukkan masa aktif 1-365 (hari) :", parse_mode="HTML"); return
             if not (HARI_MIN <= hari <= HARI_MAX):
-                await u.message.reply_text("🚫 <b>Masa aktif tidak valid.</b>\n📅 <b>Masukkan 1–30 hari Contoh : 3</b>", parse_mode="HTML")
-                await u.message.reply_text("📆 Masukkan masa aktif 1-30 (hari) :", parse_mode="HTML")
-                return
+                await u.message.reply_text("🚫 <b>Masa aktif tidak valid.</b>", parse_mode="HTML")
+                await u.message.reply_text("📆 Masukkan masa aktif 1-365 (hari) :", parse_mode="HTML"); return
             un = data.get("username")
             c.user_data["extend_step"] = None; c.user_data["extend_data"] = {}
             c.user_data["created_in_session"] = True
@@ -1687,6 +1666,10 @@ async def post_init(app):
     asyncio.create_task(auto_cleanup_task())
     ok, msg = await asyncio.to_thread(ssh_test)
     logger.info(f"[STARTUP] {msg}")
+    try:
+        c, s = await asyncio.to_thread(restore_ssh_users_from_json)
+        if c > 0: logger.info(f"[RESTORE] {c} user aktif direstore dari JSON")
+    except Exception as e: logger.error(f"restore: {e}")
 
 def main():
     app = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
@@ -1699,11 +1682,16 @@ def main():
 if __name__ == "__main__":
     main()
 BOTPYEOF
+chmod +x /root/bot.py ) & spin $! "Install Bot"
 
-chmod +x /root/bot.py
-python3 -m py_compile /root/bot.py 2>&1 | tee /root/bot_compile.log
-[ -s /root/bot_compile.log ] && echo -e "  ${RED}❌ Bot error — cek /root/bot_compile.log${NC}" || echo -e "  ${GREEN}✓ Bot OK${NC}"
+python3 -m py_compile /root/bot.py 2>&1 | tee /root/bot_compile.log >/dev/null
+if [ -s /root/bot_compile.log ]; then
+    echo -e "  ${RED}❌ Bot error — cek /root/bot_compile.log${NC}"
+fi
 
+# ══════════════════════════════════════════
+# 7. START BOT
+# ══════════════════════════════════════════
 cat > /etc/systemd/system/vpnbot.service << 'SVCEOF'
 [Unit]
 Description=SANSXML VPN Bot
@@ -1723,10 +1711,15 @@ systemctl enable vpnbot >/dev/null 2>&1
 systemctl restart vpnbot
 sleep 4
 
+# ══════════════════════════════════════════
+# 8. SELESAI
+# ══════════════════════════════════════════
 clear
-echo ""; echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "  ${GREEN}   ✓✓✓ INSTALASI SELESAI ✓✓✓${NC}"
-echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; echo ""
+echo ""
+echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "  ${GREEN}        ✓✓✓ INSTALASI SELESAI ✓✓✓${NC}"
+echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
 for s in ssh ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot; do
     ST=$(systemctl is-active "$s" 2>/dev/null || echo "n/a")
     printf "  %-14s : " "$s"
@@ -1737,20 +1730,8 @@ echo -e "  ${CYAN}Domain${NC} : ${GREEN}$DOMAIN${NC}"
 echo -e "  ${CYAN}Bot${NC}    : Cek di Telegram (/start)"
 echo -e "  ${CYAN}Log${NC}    : tail -f /root/vpnbot.log"
 echo ""
-echo -e "  ${YELLOW}📌 Setup Backup GitHub:${NC}"
-echo -e "  ${CYAN}1.${NC} Buka bot Telegram → /start"
-echo -e "  ${CYAN}2.${NC} Tap 💻 PENGATURAN → 🔄 Backup GitHub"
-echo -e "  ${CYAN}3.${NC} Isi: Username, Repo, Token, Email"
-echo -e "  ${CYAN}4.${NC} Setelah field ke-4 → auto backup langsung aktif ✅"
-echo ""
-INSTALLEREOF
-
-chmod +x /root/install.sh
-echo ""
-echo "✅ INSTALLER SIAP: /root/install.sh ($(wc -l < /root/install.sh) baris)"
-echo ""
-echo "📋 Cara pakai:"
-echo "  1. bash /root/install.sh"
-echo "  2. Input Bot Token Telegram saja"
-echo "  3. Setup backup GitHub lewat bot (menu PENGATURAN → Backup GitHub)"
+echo -e "  ${YELLOW}📌 Setup backup GitHub lewat bot:${NC}"
+echo -e "  ${WHITE}/start → PENGATURAN → Backup GitHub${NC}"
+echo -e "  ${WHITE}Isi: Username, Repo, Token, Email${NC}"
+echo -e "  ${WHITE}→ Otomatis pull + restore + push${NC}"
 echo ""

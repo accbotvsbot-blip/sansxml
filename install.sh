@@ -10,7 +10,7 @@ spin(){ local pid=$1 msg="$2"; local f=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦
 
 clear
 echo ""; echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "  ${CYAN}   SC AUTO INSTALL VPN SSH v3.1${NC}"
+echo -e "  ${CYAN}   SC AUTO INSTALL VPN SSH v3.3${NC}"
 echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; echo ""
 
 echo -e "  ${YELLOW}▸ Cleanup service lama${NC}"
@@ -27,7 +27,7 @@ echo -e "  ${YELLOW}▸ Cleanup service lama${NC}"
   rm -f /etc/profile.d/*menu* /etc/profile.d/*sans*
   rm -f /root/bot.py /root/vpnbot.log /root/install.sh.bak*
   rm -f /root/.ssh/id_bot /root/.ssh/id_bot.pub
-  rm -f /etc/sansxml-* /root/.bash_profile
+  rm -f /root/.bash_profile
   rm -rf /tmp/badvpn ) & spin $! "Hapus file lama"
 
 # Bersihin .bashrc dari auto-menu
@@ -212,85 +212,10 @@ echo "$DOMAIN" > /etc/sansxml-domain
 echo "$ADMIN_ID" > /etc/sansxml-adminid
 
 echo ""
-echo -e "  ${YELLOW}▸ Konfigurasi Auto Backup GitHub${NC}"
+echo -e "  ${YELLOW}▸ Auto Backup GitHub${NC}"
+echo -e "  ${CYAN}ℹ️  Setup lewat bot Telegram (setelah install)${NC}"
+echo -e "  ${CYAN}   Menu: /start → PENGATURAN → Backup GitHub${NC}"
 
-# ============================================================
-# ⚠️  ISI TOKEN GITHUB BARU DI SINI SEBELUM JALANKAN INSTALLER
-# Generate: https://github.com/settings/tokens?type=beta
-# Scope: Contents = Read and write, hanya repo VPN-backup-
-# ============================================================
-GH_USER="accbotvsbot-blip"
-GH_REPO="VPN-backup-"
-GH_TOKEN="GANTI_DENGAN_TOKEN_BARU"        # <<< GANTI INI
-GH_EMAIL="accbotvsbot@gmail.com"
-# ============================================================
-
-if [ "$GH_TOKEN" = "GANTI_DENGAN_TOKEN_BARU" ]; then
-    echo -e "  ${RED}❌ GITHUB TOKEN BELUM DIISI!${NC}"
-    echo -e "  ${YELLOW}Edit: nano /root/install.sh${NC}"
-    echo -e "  ${YELLOW}Cari: GH_TOKEN=\"GANTI_DENGAN_TOKEN_BARU\"${NC}"
-    echo ""
-    read -p "  Skip backup GitHub & lanjut? [y/N] : " SKIP_BK
-    if [[ ! "$SKIP_BK" =~ ^[Yy]$ ]]; then exit 1; fi
-    GH_TOKEN=""
-fi
-
-BACKUP_ENABLED=0
-if [ -n "$GH_USER" ] && [ -n "$GH_REPO" ] && [ -n "$GH_TOKEN" ]; then
-    BACKUP_ENABLED=1
-    mkdir -p /root/vpnbot_backup
-    cd /root/vpnbot_backup
-    if [ ! -d ".git" ]; then
-        git init -q
-        git config user.email "$GH_EMAIL"
-        git config user.name "$GH_USER"
-        git branch -M main 2>/dev/null
-        git remote add origin "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" 2>/dev/null || \
-        git remote set-url origin "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git"
-    fi
-    echo -e "  ${CYAN}▸ Cek backup di GitHub...${NC}"
-    if git pull origin main -q 2>/dev/null || git pull origin master -q 2>/dev/null; then
-        echo -e "  ${GREEN}✓ Backup ditemukan! Restore data...${NC}"
-        for f in vpnbot_users.json vpnbot_balance.json vpnbot_accounts.json vpnbot_trial.json vpnbot_trx.json vpnbot_blocked.json bot.py; do
-            if [ -f "/root/vpnbot_backup/$f" ]; then
-                cp "/root/vpnbot_backup/$f" "/root/$f"
-                echo -e "    ${GREEN}✓${NC} $f"
-            fi
-        done
-    else
-        echo -e "  ${YELLOW}! Backup kosong / repo baru, mulai fresh${NC}"
-    fi
-    cd /root
-    cat > /etc/sansxml-backup.conf << BEOF
-GH_USER="${GH_USER}"
-GH_REPO="${GH_REPO}"
-GH_TOKEN="${GH_TOKEN}"
-GH_EMAIL="${GH_EMAIL}"
-BEOF
-    chmod 600 /etc/sansxml-backup.conf
-    cat > /root/vpnbot_backup.sh << 'BEOF'
-#!/bin/bash
-source /etc/sansxml-backup.conf 2>/dev/null
-cd /root/vpnbot_backup || exit 1
-for f in vpnbot_users.json vpnbot_balance.json vpnbot_accounts.json vpnbot_trial.json vpnbot_trx.json vpnbot_blocked.json vpnbot_config.json bot.py; do
-    [ -f "/root/$f" ] && cp "/root/$f" "./$f"
-done
-git add -A
-if ! git diff --cached --quiet; then
-    git -c user.email="$GH_EMAIL" -c user.name="$GH_USER" commit -m "Auto backup: $(date '+%Y-%m-%d %H:%M:%S')" -q
-    if ! git push "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" HEAD:main -q 2>/dev/null; then
-        git pull --no-rebase -X ours "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" main -q 2>/dev/null
-        git push "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" HEAD:main -q 2>/dev/null
-    fi
-fi
-BEOF
-    chmod +x /root/vpnbot_backup.sh
-    ( crontab -l 2>/dev/null | grep -v vpnbot_backup.sh; echo "*/5 * * * * /root/vpnbot_backup.sh >/dev/null 2>&1" ) | crontab -
-    systemctl restart cron 2>/dev/null || systemctl restart crond 2>/dev/null
-    echo -e "  ${GREEN}✓ Auto backup aktif (setiap 5 menit)${NC}"
-fi
-
-# Selalu tulis ulang config dengan token terbaru
 cat > /root/vpnbot_config.json << CFGEOF
 {
   "bot_token": "${BOT_TOKEN}",
@@ -332,13 +257,6 @@ systemctl restart ssh 2>/dev/null || systemctl restart sshd
 
 echo ""; echo -e "  ${YELLOW}▸ Install Bot Telegram${NC}"
 
-# Kalau ada bot.py di backup, pakai yang dari backup (versi terbaru user)
-if [ -f /root/bot.py ]; then
-    echo -e "  ${GREEN}✓${NC} bot.py sudah ada (dari backup/restore)"
-elif [ -f /root/vpnbot_backup/bot.py ]; then
-    cp /root/vpnbot_backup/bot.py /root/bot.py
-    echo -e "  ${GREEN}✓${NC} bot.py di-restore dari backup GitHub"
-else
 cat > /root/bot.py << 'BOTPYEOF'
 #!/usr/bin/env python3
 import re, io, json, os, logging, subprocess, asyncio, base64, random, string, socket
@@ -402,6 +320,46 @@ def load_backup_conf():
                     if line.startswith(k + "="):
                         d[k] = line.split("=",1)[1].strip().strip('"').strip()
     return d
+
+def setup_backup_env(ghu, ghr, ght, ghe):
+    """Setup folder backup + cron + auto-push pertama."""
+    try:
+        os.makedirs("/root/vpnbot_backup", exist_ok=True)
+        subprocess.run(["git", "init", "-q"], cwd="/root/vpnbot_backup", capture_output=True)
+        subprocess.run(["git", "config", "user.email", ghe], cwd="/root/vpnbot_backup", capture_output=True)
+        subprocess.run(["git", "config", "user.name", ghu], cwd="/root/vpnbot_backup", capture_output=True)
+        subprocess.run(["git", "branch", "-M", "main"], cwd="/root/vpnbot_backup", capture_output=True)
+        remote = f"https://{ghu}:{ght}@github.com/{ghu}/{ghr}.git"
+        subprocess.run(["git", "remote", "remove", "origin"], cwd="/root/vpnbot_backup", capture_output=True)
+        subprocess.run(["git", "remote", "add", "origin", remote], cwd="/root/vpnbot_backup", capture_output=True)
+        
+        sh_path = "/root/vpnbot_backup.sh"
+        if not os.path.exists(sh_path):
+            with open(sh_path, "w") as f:
+                f.write("""#!/bin/bash
+source /etc/sansxml-backup.conf 2>/dev/null
+cd /root/vpnbot_backup || exit 1
+for f in vpnbot_users.json vpnbot_balance.json vpnbot_accounts.json vpnbot_trial.json vpnbot_trx.json vpnbot_blocked.json vpnbot_config.json bot.py; do
+    [ -f "/root/$f" ] && cp "/root/$f" "./$f"
+done
+git add -A
+if ! git diff --cached --quiet; then
+    git -c user.email="$GH_EMAIL" -c user.name="$GH_USER" commit -m "Auto backup: $(date '+%Y-%m-%d %H:%M:%S')" -q
+    if ! git push "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" HEAD:main -q 2>/dev/null; then
+        git pull --no-rebase -X ours "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" main -q 2>/dev/null
+        git push "https://${GH_USER}:${GH_TOKEN}@github.com/${GH_USER}/${GH_REPO}.git" HEAD:main -q 2>/dev/null
+    fi
+fi
+""")
+            os.chmod(sh_path, 0o755)
+        
+        subprocess.run("crontab -l 2>/dev/null | grep -v vpnbot_backup.sh | crontab -", shell=True)
+        subprocess.run('( crontab -l 2>/dev/null; echo "*/5 * * * * /root/vpnbot_backup.sh >/dev/null 2>&1" ) | crontab -', shell=True)
+        subprocess.run("systemctl restart cron 2>/dev/null || systemctl restart crond 2>/dev/null", shell=True)
+        
+        subprocess.run(["bash", "/root/vpnbot_backup.sh"], capture_output=True, timeout=60)
+        return True
+    except: return False
 
 def save_backup_conf(ghu, ghr, ght, ghe):
     with open("/etc/sansxml-backup.conf", "w") as f:
@@ -792,13 +750,16 @@ def backup_config_text():
     conf = load_backup_conf()
     ght = conf.get("GH_TOKEN", "")
     tok_disp = (ght[:10] + "..." + ght[-4:]) if len(ght) > 20 else "(kosong)"
+    status = "✅ Aktif" if all([conf.get("GH_USER"), conf.get("GH_REPO"), conf.get("GH_TOKEN")]) else "❌ Belum diisi"
     lines = ["<blockquote>", "🔄 <b>PENGATURAN BACKUP GITHUB</b>", "───────────────────────",
+             f"├ Status   : <b>{status}</b>",
              f"├ Username : <code>{conf.get('GH_USER','-')}</code>",
              f"├ Repo     : <code>{conf.get('GH_REPO','-')}</code>",
              f"├ Email    : <code>{conf.get('GH_EMAIL','-')}</code>",
              f"╰ Token    : <code>{tok_disp}</code>",
              "───────────────────────",
              "<i>Backup otomatis tiap 5 menit ke repo private.</i>",
+             "<i>Isi 4 field di atas → otomatis aktif.</i>",
              "</blockquote>"]
     return "\n".join(lines)
 
@@ -808,8 +769,7 @@ def kb_backup():
          InlineKeyboardButton("📁 Ganti Repo", callback_data="backup_edit|repo")],
         [InlineKeyboardButton("🔑 Ganti Token", callback_data="backup_edit|token"),
          InlineKeyboardButton("📧 Ganti Email", callback_data="backup_edit|email")],
-        [InlineKeyboardButton("🧪 Test Koneksi", callback_data="backup_test"),
-         InlineKeyboardButton("🚀 Push Sekarang", callback_data="backup_push")],
+        [InlineKeyboardButton("🚀 Push Sekarang", callback_data="backup_push")],
         [InlineKeyboardButton("🔙 Kembali", callback_data="admin|menu")]])
 
 def kb_admin():
@@ -907,9 +867,6 @@ def kb_ssh_server_extend():
     return InlineKeyboardMarkup(rows)
 
 def kb_coming_soon(p): return InlineKeyboardMarkup([[InlineKeyboardButton("🔙 KEMBALI", callback_data="pilih_layanan")]])
-
-def locked_menu_text():
-    return ssh_server_text()
 
 def kb_dashboard(uid):
     rows = [
@@ -1223,21 +1180,6 @@ async def cb(u, c):
         except: pass
         return
 
-    if d == "backup_test":
-        if not is_owner(uid): return
-        try:
-            r = subprocess.run(["git", "ls-remote", "origin"],
-                cwd="/root/vpnbot_backup", capture_output=True, text=True, timeout=20)
-            if r.returncode == 0 and "refs/heads" in r.stdout:
-                m = "✅ <b>Koneksi OK</b>"
-            else:
-                m = f"❌ <b>Gagal</b>\n<code>{(r.stderr or r.stdout)[:200]}</code>"
-        except Exception as e:
-            m = f"❌ Error: <code>{str(e)[:200]}</code>"
-        try: await q.edit_message_text(m + "\n\n" + backup_config_text(), reply_markup=kb_backup(), parse_mode="HTML")
-        except: pass
-        return
-
     if d == "backup_push":
         if not is_owner(uid): return
         try: await q.edit_message_text("⏳ <b>Push backup...</b>", parse_mode="HTML")
@@ -1259,7 +1201,8 @@ async def cb(u, c):
         server_key = d.split("|")[1]
         if server_key not in SERVERS:
             await chat.send_message("❌ Server tidak valid.", parse_mode="HTML"); return
-        try: await q.message.delete()
+        try:
+            await q.edit_message_reply_markup(reply_markup=kb_ssh_server_locked())
         except: pass
         c.user_data["extend_step"] = "username"
         c.user_data["extend_data"] = {"server_key": server_key}
@@ -1275,7 +1218,8 @@ async def cb(u, c):
         if used >= mx:
             await chat.send_message(f"<blockquote>❌ <b>Slot Penuh</b>\n\nServer <b>{SERVERS[server_key]['name']}</b>\nSlot tersedia: <b>{used}/{mx}</b></blockquote>", parse_mode="HTML"); return
         mode = c.user_data.get("mode", "buat")
-        try: await q.message.delete()
+        try:
+            await q.edit_message_reply_markup(reply_markup=kb_ssh_server_locked())
         except: pass
         if mode == "trial":
             if trial_left(uid) <= 0:
@@ -1540,15 +1484,17 @@ async def msg(u, c):
             c.user_data["backup_field"] = backup_field
             return
         save_backup_conf(conf["GH_USER"], conf["GH_REPO"], conf["GH_TOKEN"], conf["GH_EMAIL"])
-        try:
-            r = subprocess.run(["git", "ls-remote", "origin"],
-                cwd="/root/vpnbot_backup", capture_output=True, text=True, timeout=20)
-            test = "✅ Koneksi OK" if r.returncode == 0 else f"⚠️ <code>{(r.stderr or r.stdout)[:150]}</code>"
-        except Exception as e:
-            test = f"⚠️ <code>{str(e)[:100]}</code>"
-        await u.message.reply_text(
-            f"✅ <b>Disimpan!</b>\n\n{test}\n\n" + backup_config_text(),
-            reply_markup=kb_backup(), parse_mode="HTML")
+        all_ok = all([conf["GH_USER"], conf["GH_REPO"], conf["GH_TOKEN"], conf["GH_EMAIL"]])
+        if all_ok:
+            setup_ok = setup_backup_env(conf["GH_USER"], conf["GH_REPO"], conf["GH_TOKEN"], conf["GH_EMAIL"])
+            setup_msg = "\n✅ <b>Auto backup aktif</b> (setiap 5 menit)\n✅ <b>Backup pertama berhasil dikirim</b>\n" if setup_ok else "\n⚠️ <i>Gagal setup auto backup</i>\n"
+            await u.message.reply_text(
+                f"✅ <b>Disimpan!</b>\n{setup_msg}\n" + backup_config_text(),
+                reply_markup=kb_backup(), parse_mode="HTML")
+        else:
+            await u.message.reply_text(
+                f"✅ <b>Disimpan!</b>\n\n" + backup_config_text(),
+                reply_markup=kb_backup(), parse_mode="HTML")
         return
 
     srv_edit = c.user_data.get("srv_edit")
@@ -1753,15 +1699,10 @@ def main():
 if __name__ == "__main__":
     main()
 BOTPYEOF
-fi
 
 chmod +x /root/bot.py
 python3 -m py_compile /root/bot.py 2>&1 | tee /root/bot_compile.log
-if [ -s /root/bot_compile.log ]; then
-    echo -e "  ${RED}❌ Bot error — cek /root/bot_compile.log${NC}"
-else
-    echo -e "  ${GREEN}✓ Bot OK${NC}"
-fi
+[ -s /root/bot_compile.log ] && echo -e "  ${RED}❌ Bot error — cek /root/bot_compile.log${NC}" || echo -e "  ${GREEN}✓ Bot OK${NC}"
 
 cat > /etc/systemd/system/vpnbot.service << 'SVCEOF'
 [Unit]
@@ -1782,9 +1723,6 @@ systemctl enable vpnbot >/dev/null 2>&1
 systemctl restart vpnbot
 sleep 4
 
-# Push initial backup kalau belum ada
-[ "$BACKUP_ENABLED" = "1" ] && bash /root/vpnbot_backup.sh >/dev/null 2>&1
-
 clear
 echo ""; echo -e "  ${MAGENTA}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "  ${GREEN}   ✓✓✓ INSTALASI SELESAI ✓✓✓${NC}"
@@ -1794,30 +1732,25 @@ for s in ssh ws-ssh ws-ssh-alt stunnel4 udpgw vpnbot; do
     printf "  %-14s : " "$s"
     [ "$ST" = "active" ] && echo -e "${GREEN}$ST${NC}" || echo -e "${RED}$ST${NC}"
 done
-if [ "$BACKUP_ENABLED" = "1" ]; then
-    echo ""
-    echo -e "  ${GREEN}✓ Auto Backup GitHub AKTIF${NC}"
-    echo -e "  ${CYAN}Repo${NC}   : https://github.com/$GH_USER/$GH_REPO"
-    echo -e "  ${CYAN}Interval${NC}: Setiap 5 menit"
-fi
 echo ""
 echo -e "  ${CYAN}Domain${NC} : ${GREEN}$DOMAIN${NC}"
 echo -e "  ${CYAN}Bot${NC}    : Cek di Telegram (/start)"
 echo -e "  ${CYAN}Log${NC}    : tail -f /root/vpnbot.log"
 echo ""
+echo -e "  ${YELLOW}📌 Setup Backup GitHub:${NC}"
+echo -e "  ${CYAN}1.${NC} Buka bot Telegram → /start"
+echo -e "  ${CYAN}2.${NC} Tap 💻 PENGATURAN → 🔄 Backup GitHub"
+echo -e "  ${CYAN}3.${NC} Isi: Username, Repo, Token, Email"
+echo -e "  ${CYAN}4.${NC} Setelah field ke-4 → auto backup langsung aktif ✅"
+echo ""
 INSTALLEREOF
 
 chmod +x /root/install.sh
 echo ""
-echo "✅ INSTALLER SIAP: /root/install.sh"
-wc -l /root/install.sh
+echo "✅ INSTALLER SIAP: /root/install.sh ($(wc -l < /root/install.sh) baris)"
 echo ""
-echo "📋 CARA PAKAI:"
-echo "  1. Edit token GitHub dulu:"
-echo "     nano /root/install.sh"
-echo "     Cari: GH_TOKEN=\"GANTI_DENGAN_TOKEN_BARU\""
-echo "     Ganti dengan token baru"
-echo ""
-echo "  2. Jalankan:"
-echo "     bash /root/install.sh"
+echo "📋 Cara pakai:"
+echo "  1. bash /root/install.sh"
+echo "  2. Input Bot Token Telegram saja"
+echo "  3. Setup backup GitHub lewat bot (menu PENGATURAN → Backup GitHub)"
 echo ""

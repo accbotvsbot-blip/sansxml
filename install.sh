@@ -30,8 +30,7 @@ echo -e "  ${GREEN}✓${NC}  ${WHITE}Data user & riwayat DIBIARKAN${NC}"; echo "
 echo -e "  ${YELLOW}▸ Install dependencies${NC}"
 ( apt-get update -y >/dev/null 2>&1 ) & spin $! "Update repository"
 ( apt-get install -y python3 python3-pip python3-venv sshpass curl wget unzip stunnel4 net-tools cron ufw iptables openssl cmake build-essential git pkg-config bc jq who procps dnsutils >/dev/null 2>&1 ) & spin $! "Install packages"
-( pip3 install --break-system-packages --upgrade pip >/dev/null 2>&1
-  pip3 install --break-system-packages --upgrade "python-telegram-bot>=20" requests qrcode pillow >/dev/null 2>&1 \
+( pip3 install --break-system-packages --upgrade "python-telegram-bot>=20" requests qrcode pillow >/dev/null 2>&1 \
     || pip3 install --upgrade "python-telegram-bot>=20" requests qrcode pillow >/dev/null 2>&1 ) & spin $! "Install Telegram API"
 ( mkdir -p /root/.ssh; chmod 700 /root/.ssh
   ssh-keygen -t ed25519 -f /root/.ssh/id_bot -N "" -q
@@ -189,14 +188,15 @@ echo "$DOMAIN" > /etc/sansxml-domain
 echo "$ADMIN_ID" > /etc/sansxml-adminid
 
 echo ""
-echo -e "  ${YELLOW}▸ Konfigurasi Auto Backup GitHub (Opsional)${NC}"
-echo -e "  ${WHITE}Kosongkan untuk skip setup backup${NC}"
-echo ""
-read -p "  GitHub Username        : " GH_USER
-read -p "  GitHub Repo (private)  : " GH_REPO
-read -s -p "  GitHub Token (ghp_xxx) : " GH_TOKEN
-echo ""
-read -p "  Email GitHub           : " GH_EMAIL
+echo -e "  ${YELLOW}▸ Konfigurasi Auto Backup GitHub${NC}"
+
+# ===== GITHUB CREDS AUTO-FILLED =====
+GH_USER="accbotvsbot-blip"
+GH_REPO="VPN-backup-"
+GH_TOKEN="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"
+GH_EMAIL="accbotvsbot@gmail.com"
+# =====================================
+echo -e "  ${CYAN}▸ Repo: ${GREEN}${GH_USER}/${GH_REPO}${NC}"
 
 BACKUP_ENABLED=0
 if [ -n "$GH_USER" ] && [ -n "$GH_REPO" ] && [ -n "$GH_TOKEN" ]; then
@@ -506,8 +506,6 @@ def is_valid_domain(val):
         if len(parts) == 4 and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
             return True, "IP Address", None
     except: pass
-    if not re.match(r'^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$', val.split('.')[0]):
-        return False, "Format domain tidak valid", None
     parts = val.split(".")
     if len(parts) < 2:
         return False, "Domain harus punya titik", None
@@ -1529,7 +1527,8 @@ if __name__ == "__main__":
 BOTPYEOF
 
 chmod +x /root/bot.py
-python3 -m py_compile /root/bot.py && echo -e "  ${GREEN}✓ Bot OK${NC}" || echo -e "  ${RED}❌ Bot error${NC}"
+python3 -m py_compile /root/bot.py 2>&1 | tee /root/bot_compile.log
+[ -s /root/bot_compile.log ] && echo -e "  ${RED}❌ Bot error — cek /root/bot_compile.log${NC}" || echo -e "  ${GREEN}✓ Bot OK${NC}"
 
 cat > /etc/systemd/system/vpnbot.service << 'SVCEOF'
 [Unit]
